@@ -23,7 +23,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('addIngredientBtn').addEventListener('click', showIngredientModal);
     document.getElementById('addRecipeBtn').addEventListener('click', () => showRecipeModal());
     document.getElementById('pasteRecipeBtn').addEventListener('click', showPasteRecipeModal);
+    document.getElementById('importUrlBtn').addEventListener('click', showImportUrlModal);
     document.getElementById('addProfileBtn').addEventListener('click', showProfileModal);
+
     document.getElementById('prevMonth').addEventListener('click', () => changeMonth(-1));
     document.getElementById('nextMonth').addEventListener('click', () => changeMonth(1));
     document.getElementById('generatePlanBtn').addEventListener('click', generatePlan);
@@ -397,7 +399,158 @@ async function deleteRecipe(id) {
     renderRecipes();
 }
 
+function showImportUrlModal() {
+    modalContainer.innerHTML = `
+        <h2>Import from URL</h2>
+        <p style="color:var(--text-secondary); margin-bottom: 15px;">Enter the URL of a recipe website (e.g., AllRecipes, FoodNetwork, etc.). We will try to extract the ingredients and servings automatically.</p>
+        <div class="form-group">
+            <label>Recipe URL</label>
+            <input type="url" id="importUrlInput" placeholder="https://www.allrecipes.com/recipe/..." required>
+        </div>
+        <div id="importStatus" style="margin-top: 10px; font-size: 0.9rem; color: var(--accent);" class="hidden">Parsing website... this may take a few seconds.</div>
+        <div style="display:flex; gap: 10px; margin-top:20px;">
+            <button class="btn primary-btn" id="startImportBtn">Import Recipe</button>
+            <button class="btn icon-btn" onclick="closeModal()">Cancel</button>
+        </div>
+    `;
+    modalOverlay.classList.remove('hidden');
+
+    document.getElementById('startImportBtn').addEventListener('click', async () => {
+        const url = document.getElementById('importUrlInput').value;
+        if(!url) return;
+        
+        const status = document.getElementById('importStatus');
+        status.classList.remove('hidden');
+        
+        try {
+            // Use corsproxy.io to bypass CORS
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            const response = await fetch(proxyUrl);
+            const html = await response.text();
+            
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            let recipeData = {
+                name: doc.title.split('|')[0].split('-')[0].trim(),
+                ingredients: [],
+                servings: 2
+            };
+            
+            // Look for JSON-LD (Schema.org Recipe)
+            const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+            let foundSchema = false;
+            
+            scripts.forEach(script => {
+                try {
+                    const json = JSON.parse(script.innerHTML);
+                    const findRecipe = (obj) => {
+                        if (obj['@type'] === 'Recipe') return obj;
+                        if (Array.isArray(obj)) {
+                            for (let item of obj) {
+                                if (item['@type'] === 'Recipe') return item;
+                                if (item['@graph']) {
+                                    const res = findRecipe(item['@graph']);
+                                    if (res) return res;
+                                }
+                            }
+                        }
+                        if (obj['@graph']) return findRecipe(obj['@graph']);
+                        return null;
+                    };
+                    
+                    const recipeSchema = findRecipe(json);
+                    if (recipeSchema) {
+                        recipeData.name = recipeSchema.name || recipeData.name;
+                        recipeData.servings = parseInt(recipeSchema.recipeYield) || 2;
+                        
+                        if (recipeSchema.recipeIngredient) {
+                            recipeData.ingredients = parseIngredientStrings(recipeSchema.recipeIngredient);
+                            foundSchema = true;
+                        }
+                    }
+                } catch (e) {}
+            });
+            
+            if(!foundSchema) {
+                // Fallback: search for lists that might be ingredients
+                alert("Could not find structured data on this page. We'll try a basic scan, but results may be incomplete.");
+                const lists = doc.querySelectorAll('ul, ol');
+                let potentialIngredients = [];
+                lists.forEach(list => {
+                    const items = list.querySelectorAll('li');
+                    if(items.length > 3 && items.length < 30) {
+                        items.forEach(li => {
+                            const text = li.innerText.trim();
+                            if(text.match(/^[\\d\\.\\/]+/)) {
+                                potentialIngredients.push(text);
+                            }
+                        });
+                    }
+                });
+                if(potentialIngredients.length > 0) {
+                    recipeData.ingredients = parseIngredientStrings(potentialIngredients);
+                }
+            }
+            
+            showRecipeModal(recipeData.name, recipeData.ingredients, recipeData.servings);
+            
+        } catch (e) {
+            console.error(e);
+            alert("Failed to import recipe. The website might be blocking access or is not compatible.");
+            status.classList.add('hidden');
+        }
+    });
+}
+
+function parseIngredientStrings(strings) {
+    let parsed = [];
+    strings.forEach(line => {
+        // Reuse logic from paste modal
+        const match = line.match(/^([\\d\\s\\.\\/\\-]+)\\s*(.*)/);
+        if(match) {
+            let qtyStr = match[1].trim();
+            let rest = match[2].trim();
+            
+            let qty = 1;
+            try {
+                if(qtyStr.includes('/')) {
+                    const parts = qtyStr.split('/');
+                    qty = parseFloat(parts[0]) / parseFloat(parts[1]);
+                } else if(qtyStr.includes(' ')) {
+                    const parts = qtyStr.split(' ');
+                    qty = parts.reduce((acc, p) => acc + (p.includes('/') ? (p.split('/')[0]/p.split('/')[1]) : parseFloat(p)), 0);
+                } else {
+                    qty = parseFloat(qtyStr);
+                }
+            } catch(e) {}
+            
+            if(isNaN(qty)) qty = 1;
+
+            let bestMatchId = null;
+            let bestMatchScore = 0;
+            currentIngredients.forEach(ing => {
+                if(rest.toLowerCase().includes(ing.name.toLowerCase())) {
+                    let score = ing.name.length;
+                    if(score > bestMatchScore) {
+                        bestMatchScore = score;
+                        bestMatchId = ing.id;
+                    }
+                }
+            });
+            
+            if(bestMatchId) {
+                let existing = parsed.find(p => p.ingredientId === bestMatchId);
+                if(existing) existing.quantity += qty;
+                else parsed.push({ ingredientId: bestMatchId, quantity: qty });
+            }
+        }
+    });
+    return parsed;
+}
+
 function showPasteRecipeModal() {
+
     modalContainer.innerHTML = `
         <h2>Paste Recipe</h2>
         <p style="color:var(--text-secondary); margin-bottom: 15px;">Paste ingredients list below. We will try to automatically identify matching ingredients from your database.</p>
