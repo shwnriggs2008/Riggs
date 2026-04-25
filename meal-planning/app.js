@@ -724,7 +724,7 @@ function showImportUrlModal() {
             const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
             let foundSchema = false;
             
-            scripts.forEach(script => {
+            for (const script of scripts) {
                 try {
                     const json = JSON.parse(script.innerHTML);
                     const findRecipe = (obj) => {
@@ -753,7 +753,7 @@ function showImportUrlModal() {
                         }
                     }
                 } catch (e) {}
-            });
+            }
             
             if(!foundSchema) {
                 // Fallback: search for ingredients in the DOM
