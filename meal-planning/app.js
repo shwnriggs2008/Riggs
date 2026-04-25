@@ -14,6 +14,7 @@ const modalContainer = document.getElementById('modalContainer');
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
+    setupAuth();
     await loadData();
     renderView(currentView);
     
@@ -27,12 +28,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('nextMonth').addEventListener('click', () => changeMonth(1));
     document.getElementById('generatePlanBtn').addEventListener('click', generatePlan);
     
+    // Auth Listeners
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+        try {
+            await dbAPI.login();
+        } catch (e) {
+            alert("Login failed. Make sure you've enabled Google Auth in Firebase Console.");
+        }
+    });
+    document.getElementById('logoutBtn').addEventListener('click', () => dbAPI.logout());
+    
     // Shopping List Event Listeners
     if(document.getElementById('generateShoppingListBtn')) {
         document.getElementById('generateShoppingListBtn').addEventListener('click', generateShoppingList);
         document.getElementById('exportShoppingListBtn').addEventListener('click', exportShoppingList);
     }
 });
+
+function setupAuth() {
+    dbAPI.onAuth(async (user) => {
+        const loginBtn = document.getElementById('loginBtn');
+        const userProfile = document.getElementById('userProfile');
+        
+        if (user) {
+            loginBtn.classList.add('hidden');
+            userProfile.classList.remove('hidden');
+            document.getElementById('userAvatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + user.displayName;
+            document.getElementById('userName').innerText = user.displayName;
+        } else {
+            loginBtn.classList.remove('hidden');
+            userProfile.classList.add('hidden');
+        }
+        
+        // Reload data when auth changes
+        await loadData();
+        renderView(currentView);
+    });
+}
+
 
 // --- Data Management ---
 async function loadData() {

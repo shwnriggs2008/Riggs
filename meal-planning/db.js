@@ -11,12 +11,41 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+// Scoped Collection Helper
+const getCollection = (collectionName) => {
+    const user = auth.currentUser;
+    if (user) {
+        return db.collection('users').doc(user.uid).collection(collectionName);
+    }
+    return db.collection(collectionName); // Fallback to global if not logged in (or handle differently)
+};
 
 // API for app.js (Drop-in replacement for old IndexedDB methods)
 const dbAPI = {
+    async login() {
+        try {
+            const result = await auth.signInWithPopup(googleProvider);
+            return result.user;
+        } catch (e) {
+            console.error("Login failed", e);
+            throw e;
+        }
+    },
+
+    async logout() {
+        await auth.signOut();
+    },
+
+    onAuth(callback) {
+        auth.onAuthStateChanged(callback);
+    },
+
     async getAll(collectionName) {
         try {
-            const snapshot = await db.collection(collectionName).get();
+            const snapshot = await getCollection(collectionName).get();
             return snapshot.docs.map(doc => {
                 let data = doc.data();
                 if(!data.id) data.id = doc.id;
@@ -30,11 +59,12 @@ const dbAPI = {
 
     async add(collectionName, data) {
         try {
+            const col = getCollection(collectionName);
             if (data.id) {
-                await db.collection(collectionName).doc(data.id).set(data);
+                await col.doc(data.id).set(data);
                 return data.id;
             } else {
-                const docRef = await db.collection(collectionName).add(data);
+                const docRef = await col.add(data);
                 return docRef.id;
             }
         } catch (e) {
@@ -45,7 +75,7 @@ const dbAPI = {
 
     async delete(collectionName, id) {
         try {
-            await db.collection(collectionName).doc(id).delete();
+            await getCollection(collectionName).doc(id).delete();
         } catch (e) {
             console.error("Error deleting document: ", e);
             throw e;
@@ -54,7 +84,7 @@ const dbAPI = {
     
     async clear(collectionName) {
         try {
-            const snapshot = await db.collection(collectionName).get();
+            const snapshot = await getCollection(collectionName).get();
             const batch = db.batch();
             snapshot.docs.forEach((doc) => {
                 batch.delete(doc.ref);
@@ -66,3 +96,4 @@ const dbAPI = {
         }
     }
 };
+
