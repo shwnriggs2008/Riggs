@@ -145,7 +145,26 @@ async function loadData() {
         { name: 'Bell Pepper', unit: 'whole', calories: 30, cost: 1.00 },
         { name: 'Broccoli', unit: 'lb', calories: 150, cost: 1.80 },
         { name: 'Spinach', unit: 'oz', calories: 7, cost: 0.40 },
-        { name: 'Cucumber', unit: 'whole', calories: 45, cost: 0.70 }
+        { name: 'Cucumber', unit: 'whole', calories: 45, cost: 0.70 },
+        // Oils, Fats & Shortenings
+        { name: 'Vegetable Oil', unit: 'tbsp', calories: 120, cost: 0.08 },
+        { name: 'Canola Oil', unit: 'tbsp', calories: 120, cost: 0.08 },
+        { name: 'Lard', unit: 'tbsp', calories: 115, cost: 0.10 },
+        { name: 'Vegetable Shortening', unit: 'tbsp', calories: 110, cost: 0.12 },
+        { name: 'Coconut Oil', unit: 'tbsp', calories: 120, cost: 0.25 },
+        // More Baking & Staples
+        { name: 'Brown Sugar', unit: 'cup', calories: 830, cost: 0.20 },
+        { name: 'Yeast (Active Dry)', unit: 'tsp', calories: 15, cost: 0.10 },
+        { name: 'Baking Powder', unit: 'tsp', calories: 2, cost: 0.05 },
+        { name: 'Baking Soda', unit: 'tsp', calories: 0, cost: 0.03 },
+        { name: 'Vanilla Extract', unit: 'tsp', calories: 12, cost: 0.50 },
+        { name: 'Cocoa Powder', unit: 'cup', calories: 200, cost: 0.80 },
+        { name: 'Chocolate Chips', unit: 'cup', calories: 800, cost: 1.50 },
+        // More Veggies & Legumes
+        { name: 'Peas (Frozen)', unit: 'oz', calories: 22, cost: 0.10 },
+        { name: 'Green Beans', unit: 'oz', calories: 9, cost: 0.15 },
+        { name: 'Chickpeas', unit: 'oz', calories: 45, cost: 0.12 },
+        { name: 'Lentils', unit: 'oz', calories: 32, cost: 0.10 }
     ];
 
     let addedAny = false;
