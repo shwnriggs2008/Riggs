@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('addRecipeBtn').addEventListener('click', () => showRecipeModal());
     document.getElementById('pasteRecipeBtn').addEventListener('click', showPasteRecipeModal);
     document.getElementById('importUrlBtn').addEventListener('click', showImportUrlModal);
+    document.getElementById('importImageBtn').addEventListener('click', showImportImageModal);
     document.getElementById('addProfileBtn').addEventListener('click', showProfileModal);
 
     document.getElementById('prevMonth').addEventListener('click', () => changeMonth(-1));
@@ -835,6 +836,77 @@ function showImportUrlModal() {
     });
 }
 
+function showImportImageModal() {
+    modalContainer.innerHTML = `
+        <h2>Import from Image (OCR)</h2>
+        <p style="color:var(--text-secondary); margin-bottom: 15px;">Upload a photo of a recipe or ingredient list. We will use OCR to extract the text.</p>
+        <div class="form-group">
+            <label>Select Image</label>
+            <input type="file" id="importImageInput" accept="image/*" class="form-control">
+        </div>
+        <div id="imagePreviewContainer" class="hidden" style="margin-bottom: 15px; text-align: center;">
+            <img id="importImagePreview" style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--border);">
+        </div>
+        <div id="ocrStatus" style="margin-top: 10px; font-size: 0.9rem; color: var(--accent);" class="hidden">
+            <i class="fa-solid fa-spinner fa-spin"></i> <span id="ocrStatusText">Reading image...</span>
+        </div>
+        <div style="display:flex; gap: 10px; margin-top:20px;">
+            <button class="btn primary-btn" id="startOcrBtn" disabled>Start Scan</button>
+            <button class="btn icon-btn" onclick="closeModal()">Cancel</button>
+        </div>
+    `;
+    modalOverlay.classList.remove('hidden');
+
+    const input = document.getElementById('importImageInput');
+    const preview = document.getElementById('importImagePreview');
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const startBtn = document.getElementById('startOcrBtn');
+
+    input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (re) => {
+                preview.src = re.target.result;
+                previewContainer.classList.remove('hidden');
+                startBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    startBtn.addEventListener('click', async () => {
+        const status = document.getElementById('ocrStatus');
+        const statusText = document.getElementById('ocrStatusText');
+        status.classList.remove('hidden');
+        startBtn.disabled = true;
+
+        try {
+            const { data: { text } } = await Tesseract.recognize(
+                preview.src,
+                'eng',
+                { logger: m => {
+                    if(m.status === 'recognizing text') {
+                        statusText.innerText = `Scanning: ${Math.round(m.progress * 100)}%`;
+                    }
+                } }
+            );
+
+            console.log("OCR Result:", text);
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 5);
+            const ingredients = await parseIngredientStrings(lines);
+            
+            status.classList.add('hidden');
+            showRecipeModal("Image Import", ingredients);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to read image. Please make sure the text is clear.");
+            status.classList.add('hidden');
+            startBtn.disabled = false;
+        }
+    });
+}
+
 async function parseIngredientStrings(strings) {
     let parsed = [];
     for (const line of strings) {
@@ -1252,6 +1324,7 @@ window.showProfileModal = showProfileModal;
 window.showRecipeModal = showRecipeModal;
 window.showPasteRecipeModal = showPasteRecipeModal;
 window.showImportUrlModal = showImportUrlModal;
+window.showImportImageModal = showImportImageModal;
 window.editRecipe = editRecipe;
 window.manualCleanup = manualCleanup;
 window.removeIngFromRecipe = (idx) => { /* already attached in showRecipeModal */ };

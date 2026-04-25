@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="styles.css">
     <!-- SheetJS for Excel export -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <!-- Tesseract OCR -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 </head>
 <body>
     <div class="app-container">
@@ -129,6 +131,7 @@
                         <button class="btn primary-btn" id="addRecipeBtn"><i class="fa-solid fa-plus"></i> New Recipe</button>
                         <button class="btn magic-btn" id="pasteRecipeBtn"><i class="fa-solid fa-paste"></i> Paste from Text</button>
                         <button class="btn outline-btn" id="importUrlBtn"><i class="fa-solid fa-globe"></i> Import from URL</button>
+                        <button class="btn outline-btn" id="importImageBtn"><i class="fa-solid fa-camera"></i> Import from Image</button>
                     </div>
                     <div class="recipes-grid" id="recipesList">
                         <!-- Recipes will be injected here -->
