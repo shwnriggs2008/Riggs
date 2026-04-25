@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Hub - Riggs</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        h1 {
+            margin-bottom: 2rem;
+            color: #4CAF50;
+        }
+        .app-container {
+            display: flex;
+            gap: 2rem;
+        }
+        .app-card {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            text-decoration: none;
+            color: #ffffff;
+            width: 200px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #333;
+        }
+        .app-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+            border-color: #4CAF50;
+        }
+        .app-card h2 {
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+        .app-card p {
+            color: #aaaaaa;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>My Applications</h1>
+    <div class="app-container">
+        <a href="meal-planning/index.html" class="app-card">
+            <h2>PlanEats</h2>
+            <p>Your personal meal planner and recipe manager.</p>
+        </a>
+        <a href="phoenix-budget/index.html" class="app-card">
+            <h2>Phoenix Budget</h2>
+            <p>Manage your finances and track expenses.</p>
+        </a>
+    </div>
+</body>
+</html>

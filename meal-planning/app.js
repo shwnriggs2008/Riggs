@@ -1,0 +1,684 @@
+// App State
+let currentView = 'dashboard';
+let currentDate = new Date(); // For calendar current month
+let currentIngredients = [];
+let currentRecipes = [];
+let currentMealPlan = [];
+
+// DOM Elements
+const views = document.querySelectorAll('.view');
+const navLinks = document.querySelectorAll('.nav-links li');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalContainer = document.getElementById('modalContainer');
+
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', async () => {
+    setupNavigation();
+    await loadData();
+    renderView(currentView);
+    
+    // Global Event Listeners
+    document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+    document.getElementById('addIngredientBtn').addEventListener('click', showIngredientModal);
+    document.getElementById('addRecipeBtn').addEventListener('click', () => showRecipeModal());
+    document.getElementById('pasteRecipeBtn').addEventListener('click', showPasteRecipeModal);
+    document.getElementById('addProfileBtn').addEventListener('click', showProfileModal);
+    document.getElementById('prevMonth').addEventListener('click', () => changeMonth(-1));
+    document.getElementById('nextMonth').addEventListener('click', () => changeMonth(1));
+    document.getElementById('generatePlanBtn').addEventListener('click', generatePlan);
+    
+    // Shopping List Event Listeners
+    if(document.getElementById('generateShoppingListBtn')) {
+        document.getElementById('generateShoppingListBtn').addEventListener('click', generateShoppingList);
+        document.getElementById('exportShoppingListBtn').addEventListener('click', exportShoppingList);
+    }
+});
+
+// --- Data Management ---
+async function loadData() {
+    currentIngredients = await dbAPI.getAll('ingredients');
+    currentRecipes = await dbAPI.getAll('recipes');
+    currentMealPlan = await dbAPI.getAll('mealPlan');
+    updateDashboard();
+    
+    // Check for shared recipe in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedRecipeId = urlParams.get('recipeId');
+    if (sharedRecipeId && currentView === 'dashboard') {
+        handleSharedRecipe(sharedRecipeId);
+    }
+}
+
+async function handleSharedRecipe(recipeId) {
+    try {
+        // Fetch recipe from Firebase directly by doc id
+        const doc = await db.collection('recipes').doc(recipeId).get();
+        if (doc.exists) {
+            const recipe = doc.data();
+            recipe.id = doc.id;
+            
+            // Ask user to save it
+            if(confirm(`Someone shared a recipe with you: "${recipe.name}". Would you like to save it?`)) {
+                // Ensure we don't duplicate id
+                recipe.id = 'rec_' + Date.now();
+                await dbAPI.add('recipes', recipe);
+                await loadData();
+                switchView('recipes');
+                alert("Recipe saved successfully!");
+            }
+        }
+        
+        // Clear URL so it doesn't prompt on refresh
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } catch(e) {
+        console.error("Error fetching shared recipe", e);
+    }
+}
+
+// --- Navigation ---
+function setupNavigation() {
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            navLinks.forEach(l => l.classList.remove('active'));
+            const target = e.currentTarget;
+            target.classList.add('active');
+            
+            const viewId = target.getAttribute('data-view');
+            switchView(viewId);
+        });
+    });
+}
+
+function switchView(viewId) {
+    views.forEach(v => v.classList.remove('active-view'));
+    document.getElementById(`view-${viewId}`).classList.add('active-view');
+    currentView = viewId;
+    renderView(viewId);
+}
+
+function renderView(viewId) {
+    switch (viewId) {
+        case 'dashboard': updateDashboard(); break;
+        case 'calendar': renderCalendar(); break;
+        case 'ingredients': renderIngredients(); break;
+        case 'recipes': renderRecipes(); break;
+        case 'profiles': renderProfiles(); break;
+        case 'shopping-list': /* Shopping list doesn't auto render */ break;
+    }
+}
+
+function closeModal() {
+    modalOverlay.classList.add('hidden');
+    setTimeout(() => { modalContainer.innerHTML = ''; }, 300);
+}
+
+// --- Dashboard ---
+function updateDashboard() {
+    const totalRecipes = currentRecipes.length;
+    document.getElementById('stat-recipes').innerText = totalRecipes;
+    
+    let dailyCalTotal = 0;
+    let monthlyCostTotal = 0;
+    
+    // Calculate naive averages from meal plan
+    if(currentMealPlan.length > 0) {
+        // ... (can be detailed later based on actual plans)
+    }
+    document.getElementById('stat-calories').innerText = dailyCalTotal + ' kcal';
+    document.getElementById('stat-cost').innerText = '$' + monthlyCostTotal.toFixed(2);
+}
+
+// --- Ingredients View ---
+function renderIngredients() {
+    const tbody = document.getElementById('ingredientsList');
+    tbody.innerHTML = '';
+    currentIngredients.forEach(ing => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${ing.name}</td>
+            <td>${ing.unit}</td>
+            <td>${ing.calories}</td>
+            <td>$${parseFloat(ing.cost).toFixed(2)}</td>
+            <td>
+                <button class="action-btn" onclick="deleteIngredient('${ing.id}')"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function showIngredientModal() {
+    modalContainer.innerHTML = `
+        <h2>Add Ingredient</h2>
+        <form id="ingredientForm">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="ingName" required>
+            </div>
+            <div class="form-group">
+                <label>Unit (e.g., oz, cup, whole)</label>
+                <input type="text" id="ingUnit" required>
+            </div>
+            <div class="form-group">
+                <label>Calories per Unit</label>
+                <input type="number" id="ingCalories" required>
+            </div>
+            <div class="form-group">
+                <label>Cost per Unit ($)</label>
+                <input type="number" step="0.01" id="ingCost" required>
+            </div>
+            <div style="display:flex; gap: 10px; margin-top:20px;">
+                <button type="submit" class="btn primary-btn">Save</button>
+                <button type="button" class="btn icon-btn" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    `;
+    modalOverlay.classList.remove('hidden');
+    
+    document.getElementById('ingredientForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newIng = {
+            id: 'ing_' + Date.now(),
+            name: document.getElementById('ingName').value,
+            unit: document.getElementById('ingUnit').value,
+            calories: parseFloat(document.getElementById('ingCalories').value),
+            cost: parseFloat(document.getElementById('ingCost').value)
+        };
+        await dbAPI.add('ingredients', newIng);
+        await loadData();
+        closeModal();
+        renderIngredients();
+    });
+}
+
+async function deleteIngredient(id) {
+    await dbAPI.delete('ingredients', id);
+    await loadData();
+    renderIngredients();
+}
+
+// --- Recipes View ---
+function renderRecipes() {
+    const grid = document.getElementById('recipesList');
+    grid.innerHTML = '';
+    currentRecipes.forEach(recipe => {
+        const el = document.createElement('div');
+        el.className = 'recipe-card glass-panel';
+        
+        let tagsHtml = recipe.categories.map(c => `<span class="tag">${c}</span>`).join('');
+        
+        // Compute Cost & Calories safely
+        let totalCost = 0;
+        let totalCals = 0;
+        
+        recipe.ingredients.forEach(ri => {
+            const ing = currentIngredients.find(i => i.id === ri.ingredientId);
+            if(ing) {
+                totalCost += (ing.cost * ri.quantity);
+                totalCals += (ing.calories * ri.quantity);
+            }
+        });
+        
+        let perServingCost = recipe.servings > 0 ? (totalCost / recipe.servings) : 0;
+        let perServingCals = recipe.servings > 0 ? (totalCals / recipe.servings) : 0;
+
+        el.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <h3>${recipe.name}</h3>
+                <div>
+                    <button class="action-btn text-accent" title="Share" onclick="shareRecipe('${recipe.id}')"><i class="fa-solid fa-share-nodes"></i></button>
+                    <button class="action-btn" title="Delete" onclick="deleteRecipe('${recipe.id}')"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="recipe-tags">${tagsHtml}</div>
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Servings: ${recipe.servings}</p>
+            <div style="margin-top: 10px; font-size: 0.85rem; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                <p><i class="fa-solid fa-fire text-accent"></i> ${perServingCals.toFixed(0)} kcal / serving</p>
+                <p><i class="fa-solid fa-sack-dollar text-accent"></i> $${perServingCost.toFixed(2)} / serving</p>
+            </div>
+        `;
+        grid.appendChild(el);
+    });
+}
+
+function shareRecipe(id) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('recipeId', id);
+    navigator.clipboard.writeText(url.toString()).then(() => {
+        alert("Share link copied to clipboard!");
+    });
+}
+
+function showRecipeModal(initialName = '', initialIngredients = []) {
+    modalContainer.innerHTML = `
+        <h2>New Recipe</h2>
+        <form id="recipeForm">
+            <div class="form-group">
+                <label>Recipe Name</label>
+                <input type="text" id="recipeName" required value="${initialName}">
+            </div>
+            <div class="form-group">
+                <label>Servings</label>
+                <input type="number" id="recipeServings" value="2" required>
+            </div>
+            <div class="form-group">
+                <label>Categories</label>
+                <select id="recipeCategories" multiple style="height: 80px;" required>
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                </select>
+                <small style="color:var(--text-secondary)">Hold Ctrl/Cmd to select multiple</small>
+            </div>
+            
+            <div style="margin-top:20px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                <h3>Ingredients</h3>
+                <div id="recipeIngList"></div>
+                <div style="display:flex; gap: 10px; margin-top: 10px;">
+                    <select id="ingSelect" class="form-group">
+                        ${currentIngredients.map(i => `<option value="${i.id}">${i.name} (${i.unit})</option>`).join('')}
+                    </select>
+                    <input type="number" id="ingQty" placeholder="Qty" style="width: 80px;" class="form-group">
+                    <button type="button" id="addRecipeIngBtn" class="btn icon-btn"><i class="fa-solid fa-plus"></i></button>
+                </div>
+            </div>
+
+            <div style="display:flex; gap: 10px; margin-top:20px;">
+                <button type="submit" class="btn primary-btn">Save Recipe</button>
+                <button type="button" class="btn icon-btn" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    `;
+    modalOverlay.classList.remove('hidden');
+    
+    let selectedIngredients = initialIngredients;
+    
+    // Initial preview if pasted
+    if(selectedIngredients.length > 0) {
+        updateRecipeIngPreview();
+    }
+    
+    document.getElementById('addRecipeIngBtn').addEventListener('click', () => {
+        const id = document.getElementById('ingSelect').value;
+        const qty = parseFloat(document.getElementById('ingQty').value);
+        if(!id || !qty) return;
+        
+        const existing = selectedIngredients.find(s => s.ingredientId === id);
+        if(existing) existing.quantity += qty;
+        else selectedIngredients.push({ ingredientId: id, quantity: qty });
+        
+        updateRecipeIngPreview();
+    });
+
+    function updateRecipeIngPreview() {
+        const list = document.getElementById('recipeIngList');
+        list.innerHTML = selectedIngredients.map(s => {
+            const ing = currentIngredients.find(i => i.id === s.ingredientId);
+            return `<div style="font-size:0.9rem;">${s.quantity} x ${ing.name}</div>`;
+        }).join('');
+    }
+
+    document.getElementById('recipeForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const sel = document.getElementById('recipeCategories');
+        const categories = Array.from(sel.selectedOptions).map(opt => opt.value);
+        
+        const newRecipe = {
+            id: 'rec_' + Date.now(),
+            name: document.getElementById('recipeName').value,
+            servings: parseInt(document.getElementById('recipeServings').value),
+            categories: categories,
+            ingredients: selectedIngredients
+        };
+        await dbAPI.add('recipes', newRecipe);
+        await loadData();
+        closeModal();
+        renderRecipes();
+    });
+}
+
+async function deleteRecipe(id) {
+    await dbAPI.delete('recipes', id);
+    await loadData();
+    renderRecipes();
+}
+
+function showPasteRecipeModal() {
+    modalContainer.innerHTML = `
+        <h2>Paste Recipe</h2>
+        <p style="color:var(--text-secondary); margin-bottom: 15px;">Paste ingredients list below. We will try to automatically identify matching ingredients from your database.</p>
+        <div class="form-group">
+            <label>Recipe Name (Optional)</label>
+            <input type="text" id="pasteRecipeName">
+        </div>
+        <div class="form-group">
+            <label>Recipe Text</label>
+            <textarea id="pasteRecipeText" rows="10" placeholder="Example:\n1 cup flour\n2 eggs\n..." required></textarea>
+        </div>
+        <div style="display:flex; gap: 10px; margin-top:20px;">
+            <button class="btn primary-btn" id="parseRecipeBtn">Parse & Review</button>
+            <button class="btn icon-btn" onclick="closeModal()">Cancel</button>
+        </div>
+    `;
+    modalOverlay.classList.remove('hidden');
+
+    document.getElementById('parseRecipeBtn').addEventListener('click', () => {
+        const text = document.getElementById('pasteRecipeText').value;
+        const name = document.getElementById('pasteRecipeName').value || "Pasted Recipe";
+        
+        if(!text) return;
+        
+        const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+        let parsedIngredients = [];
+        
+        lines.forEach(line => {
+            // Very simple parser: expects "Quantity [Rest of string]"
+            const match = line.match(/^([\\d\\.\\/]+)\\s*(.*)/);
+            if(match) {
+                let qtyStr = match[1];
+                let rest = match[2];
+                
+                let qty = 1;
+                if(qtyStr.includes('/')) {
+                    const parts = qtyStr.split('/');
+                    if(parts.length === 2 && parseFloat(parts[1]) !== 0) {
+                        qty = parseFloat(parts[0]) / parseFloat(parts[1]);
+                    }
+                } else {
+                    qty = parseFloat(qtyStr);
+                }
+                
+                let bestMatchId = null;
+                let bestMatchScore = 0;
+                currentIngredients.forEach(ing => {
+                    if(rest.toLowerCase().includes(ing.name.toLowerCase())) {
+                        let score = ing.name.length;
+                        if(score > bestMatchScore) {
+                            bestMatchScore = score;
+                            bestMatchId = ing.id;
+                        }
+                    }
+                });
+                
+                if(bestMatchId) {
+                    let existing = parsedIngredients.find(p => p.ingredientId === bestMatchId);
+                    if(existing) {
+                        existing.quantity += qty;
+                    } else {
+                        parsedIngredients.push({ ingredientId: bestMatchId, quantity: qty });
+                    }
+                }
+            }
+        });
+        
+        // Show recipe modal pre-filled
+        showRecipeModal(name, parsedIngredients);
+    });
+}
+
+// --- Profiles View ---
+async function renderProfiles() {
+    const profiles = await dbAPI.getAll('profiles');
+    const grid = document.getElementById('profilesList');
+    grid.innerHTML = '';
+    profiles.forEach(p => {
+        grid.innerHTML += `
+            <div class="profile-card glass-panel">
+                <h3>${p.name}</h3>
+                <p>Daily Calorie Goal: ${p.calorieGoal} kcal</p>
+                <button class="action-btn" onclick="deleteProfile('${p.id}')" style="margin-top:10px;">
+                    <i class="fa-solid fa-trash"></i> Remove
+                </button>
+            </div>
+        `;
+    });
+}
+
+function showProfileModal() {
+    modalContainer.innerHTML = `
+        <h2>Add Profile</h2>
+        <form id="profileForm">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="profName" required>
+            </div>
+            <div class="form-group">
+                <label>Daily Calorie Goal</label>
+                <input type="number" id="profCals" required>
+            </div>
+            <div style="display:flex; gap: 10px; margin-top:20px;">
+                <button type="submit" class="btn primary-btn">Save</button>
+                <button type="button" class="btn icon-btn" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    `;
+    modalOverlay.classList.remove('hidden');
+    
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await dbAPI.add('profiles', {
+            id: 'prof_' + Date.now(),
+            name: document.getElementById('profName').value,
+            calorieGoal: parseInt(document.getElementById('profCals').value)
+        });
+        closeModal();
+        renderProfiles();
+    });
+}
+
+async function deleteProfile(id) {
+    await dbAPI.delete('profiles', id);
+    renderProfiles();
+}
+
+// --- Calendar View & Generation ---
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    document.getElementById('currentMonthLabel').innerText = `${monthNames[month]} ${year}`;
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 (Sun) to 6 (Sat)
+    
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    
+    // Headers
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
+        grid.innerHTML += `<div class="cal-day-header">${day}</div>`;
+    });
+    
+    // Blank days
+    for(let i=0; i<startDayOfWeek; i++) {
+        grid.innerHTML += `<div></div>`;
+    }
+    
+    // Days
+    for(let i=1; i<=daysInMonth; i++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        // Find meals for this day
+        const dayMeals = currentMealPlan.filter(m => m.date === dateStr);
+        
+        let mealsHtml = '';
+        dayMeals.forEach(dm => {
+            const r = currentRecipes.find(cr => cr.id === dm.recipeId);
+            if(r) {
+                mealsHtml += `<div class="cal-meal ${dm.mealType}" title="${r.name}">${dm.mealType[0]}: ${r.name}</div>`;
+            }
+        });
+        
+        grid.innerHTML += `
+            <div class="cal-day">
+                <div class="cal-date">${i}</div>
+                <div style="flex:1;">${mealsHtml}</div>
+            </div>
+        `;
+    }
+}
+
+function changeMonth(delta) {
+    currentDate.setMonth(currentDate.getMonth() + delta);
+    renderCalendar();
+}
+
+async function generatePlan() {
+    if(currentRecipes.length === 0) {
+        alert("Please add some recipes first!");
+        return;
+    }
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    
+    // Simple randomizer
+    const mealTypes = ['Breakfast', 'Lunch', 'Dinner'];
+    
+    for(let d=1; d<=lastDay; d++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        
+        for(let type of mealTypes) {
+            // Check if exists
+            const exists = currentMealPlan.find(m => m.date === dateStr && m.mealType === type);
+            if(!exists) {
+                // Find potential recipes
+                const validRecipes = currentRecipes.filter(r => r.categories.includes(type));
+                if(validRecipes.length > 0) {
+                    const picked = validRecipes[Math.floor(Math.random() * validRecipes.length)];
+                    const entry = {
+                        id: dateStr + '_' + type,
+                        date: dateStr,
+                        mealType: type,
+                        recipeId: picked.id
+                    };
+                    await dbAPI.add('mealPlan', entry);
+                    currentMealPlan.push(entry);
+                }
+            }
+        }
+    }
+    
+    renderCalendar();
+    updateDashboard();
+}
+
+// --- Excel Export ---
+function exportToExcel() {
+    if(!window.XLSX) {
+        alert("Excel export library not loaded yet.");
+        return;
+    }
+    
+    // We export Ingredients, Recipes, and MealPlan
+    const wb = window.XLSX.utils.book_new();
+    
+    // Ingredients Sheet
+    const wsIng = window.XLSX.utils.json_to_sheet(currentIngredients.map(i => ({
+        Name: i.name, Unit: i.unit, Calories: i.calories, Cost: i.cost
+    })));
+    window.XLSX.utils.book_append_sheet(wb, wsIng, "Ingredients");
+    
+    // Recipes Sheet
+    const wsRec = window.XLSX.utils.json_to_sheet(currentRecipes.map(r => ({
+        Name: r.name, Servings: r.servings, Categories: r.categories.join(', ')
+    })));
+    window.XLSX.utils.book_append_sheet(wb, wsRec, "Recipes");
+    
+    // Meal Plan Sheet
+    const wsPlan = window.XLSX.utils.json_to_sheet(currentMealPlan.map(m => {
+        const r = currentRecipes.find(rec => rec.id === m.recipeId);
+        return {
+            Date: m.date,
+            Meal: m.mealType,
+            Recipe: r ? r.name : 'Unknown'
+        };
+    }));
+    window.XLSX.utils.book_append_sheet(wb, wsPlan, "Meal Plan");
+    
+    window.XLSX.writeFile(wb, "PlanEats_Export.xlsx");
+}
+
+// --- Shopping List ---
+let currentShoppingListData = [];
+
+function generateShoppingList() {
+    const startStr = document.getElementById('shopStartDate').value;
+    const endStr = document.getElementById('shopEndDate').value;
+    
+    if(!startStr || !endStr) {
+        alert("Please select both start and end dates.");
+        return;
+    }
+    
+    const meals = currentMealPlan.filter(m => m.date >= startStr && m.date <= endStr);
+    
+    let ingredientTotals = {};
+    
+    meals.forEach(m => {
+        const recipe = currentRecipes.find(r => r.id === m.recipeId);
+        if(recipe) {
+            recipe.ingredients.forEach(ri => {
+                if(!ingredientTotals[ri.ingredientId]) {
+                    ingredientTotals[ri.ingredientId] = 0;
+                }
+                ingredientTotals[ri.ingredientId] += ri.quantity;
+            });
+        }
+    });
+    
+    const tbody = document.getElementById('shoppingListBody');
+    tbody.innerHTML = '';
+    
+    let totalCost = 0;
+    currentShoppingListData = [];
+    
+    const keys = Object.keys(ingredientTotals);
+    if(keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">No meals found in this range.</td></tr>';
+        document.getElementById('exportShoppingListBtn').style.display = 'none';
+        document.getElementById('shoppingListTotalCost').innerText = '$0.00';
+        return;
+    }
+    
+    keys.forEach(ingId => {
+        const qty = ingredientTotals[ingId];
+        const ing = currentIngredients.find(i => i.id === ingId);
+        if(ing) {
+            const cost = qty * ing.cost;
+            totalCost += cost;
+            
+            currentShoppingListData.push({
+                Ingredient: ing.name,
+                Quantity: qty + ' ' + ing.unit,
+                Cost: cost
+            });
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td>${ing.name}</td>
+                    <td>${qty} ${ing.unit}</td>
+                    <td>$${cost.toFixed(2)}</td>
+                </tr>
+            `;
+        }
+    });
+    
+    document.getElementById('shoppingListTotalCost').innerText = '$' + totalCost.toFixed(2);
+    document.getElementById('exportShoppingListBtn').style.display = 'inline-flex';
+}
+
+function exportShoppingList() {
+    if(!window.XLSX) {
+        alert("Excel export library not loaded yet.");
+        return;
+    }
+    const wb = window.XLSX.utils.book_new();
+    const ws = window.XLSX.utils.json_to_sheet(currentShoppingListData);
+    window.XLSX.utils.book_append_sheet(wb, ws, "Shopping List");
+    window.XLSX.writeFile(wb, "ShoppingList_Export.xlsx");
+}

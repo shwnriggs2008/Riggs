@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlanEats - Intelligent Meal Planning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar glass-panel">
+            <div class="brand">
+                <i class="fa-solid fa-utensils"></i>
+                <h1>PlanEats</h1>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-view="dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</li>
+                <li data-view="calendar"><i class="fa-solid fa-calendar-days"></i> Meal Calendar</li>
+                <li data-view="shopping-list"><i class="fa-solid fa-cart-shopping"></i> Shopping List</li>
+                <li data-view="recipes"><i class="fa-solid fa-book-open"></i> Recipes</li>
+                <li data-view="ingredients"><i class="fa-solid fa-carrot"></i> Ingredients</li>
+                <li data-view="profiles"><i class="fa-solid fa-users"></i> Profiles</li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <h2>Dashboard</h2>
+                <div class="actions">
+                    <button id="exportBtn" class="btn primary-btn"><i class="fa-solid fa-file-excel"></i> Export Data</button>
+                </div>
+            </header>
+
+            <!-- Views Container -->
+            <div id="views-container">
+                <!-- Dashboard View -->
+                <div id="view-dashboard" class="view active-view">
+                    <div class="stats-grid">
+                        <div class="stat-card glass-panel">
+                            <h3><i class="fa-solid fa-fire"></i> Daily Avg Calories</h3>
+                            <p id="stat-calories">0 kcal</p>
+                        </div>
+                        <div class="stat-card glass-panel">
+                            <h3><i class="fa-solid fa-sack-dollar"></i> Est. Monthly Cost</h3>
+                            <p id="stat-cost">$0.00</p>
+                        </div>
+                        <div class="stat-card glass-panel">
+                            <h3><i class="fa-solid fa-book"></i> Total Recipes</h3>
+                            <p id="stat-recipes">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar View -->
+                <div id="view-calendar" class="view">
+                    <div class="calendar-header">
+                        <button id="prevMonth" class="btn icon-btn"><i class="fa-solid fa-chevron-left"></i></button>
+                        <h3 id="currentMonthLabel">Month Year</h3>
+                        <button id="nextMonth" class="btn icon-btn"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button id="generatePlanBtn" class="btn magic-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Generate</button>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid">
+                        <!-- Calendar days will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Shopping List View -->
+                <div id="view-shopping-list" class="view">
+                    <div class="glass-panel" style="padding: 20px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Start Date</label>
+                            <input type="date" id="shopStartDate">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>End Date</label>
+                            <input type="date" id="shopEndDate">
+                        </div>
+                        <button id="generateShoppingListBtn" class="btn primary-btn"><i class="fa-solid fa-list-check"></i> Generate</button>
+                        <button id="exportShoppingListBtn" class="btn magic-btn" style="display: none;"><i class="fa-solid fa-file-excel"></i> Export List</button>
+                    </div>
+                    
+                    <div class="table-container glass-panel">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Ingredient</th>
+                                    <th>Total Quantity</th>
+                                    <th>Est. Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shoppingListBody">
+                                <!-- Shopping list items injected here -->
+                                <tr><td colspan="3" style="text-align: center; color: var(--text-secondary);">Select a date range and click Generate.</td></tr>
+                            </tbody>
+                        </table>
+                        <div style="text-align: right; margin-top: 15px; font-weight: bold; font-size: 1.2rem; padding: 10px;">
+                            Total Est. Cost: <span id="shoppingListTotalCost" style="color: var(--accent);">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recipes View -->
+                <div id="view-recipes" class="view">
+                    <div style="display:flex; gap: 10px; margin-bottom: 20px;">
+                        <button class="btn primary-btn" id="addRecipeBtn"><i class="fa-solid fa-plus"></i> New Recipe</button>
+                        <button class="btn magic-btn" id="pasteRecipeBtn"><i class="fa-solid fa-paste"></i> Paste from Text</button>
+                    </div>
+                    <div class="recipes-grid" id="recipesList">
+                        <!-- Recipes will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Ingredients View -->
+                <div id="view-ingredients" class="view">
+                    <button class="btn primary-btn mb-4" id="addIngredientBtn"><i class="fa-solid fa-plus"></i> Add Ingredient</button>
+                    <div class="table-container glass-panel">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Unit</th>
+                                    <th>Calories/Unit</th>
+                                    <th>Cost/Unit</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ingredientsList">
+                                <!-- Ingredients will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Profiles View -->
+                <div id="view-profiles" class="view">
+                    <button class="btn primary-btn mb-4" id="addProfileBtn"><i class="fa-solid fa-plus"></i> Add Profile</button>
+                    <div class="profiles-grid" id="profilesList">
+                        <!-- Profiles injected here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals (Hidden by default) -->
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal glass-panel" id="modalContainer">
+            <!-- Modal Content injected by JS -->
+        </div>
+    </div>
+
+    <!-- Firebase (Compat v10 for drop-in replacement) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
