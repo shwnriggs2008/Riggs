@@ -405,6 +405,7 @@ function renderIngredients() {
             <td>${ing.calories}</td>
             <td>$${parseFloat(ing.cost).toFixed(2)}</td>
             <td>
+                <button class="action-btn" onclick="showIngredientModal('${ing.id}')" style="margin-right:8px;"><i class="fa-solid fa-pencil"></i></button>
                 <button class="action-btn" onclick="deleteIngredient('${ing.id}')"><i class="fa-solid fa-trash"></i></button>
             </td>
         `;
@@ -412,25 +413,34 @@ function renderIngredients() {
     });
 }
 
-function showIngredientModal() {
+function scrubIngredientName(name) {
+    return name
+        .replace(/[+\d\/\u00BC-\u00BE\u2150-\u215E]+/g, '') // Remove numbers, pluses, fractions
+        .replace(/\s+/g, ' ')                                // Remove double spaces
+        .trim();
+}
+
+function showIngredientModal(existingId = null) {
+    const existing = existingId ? currentIngredients.find(i => i.id === existingId) : null;
+    
     modalContainer.innerHTML = `
-        <h2>Add Ingredient</h2>
+        <h2>${existing ? 'Edit' : 'Add'} Ingredient</h2>
         <form id="ingredientForm">
             <div class="form-group">
                 <label>Name</label>
-                <input type="text" id="ingName" required>
+                <input type="text" id="ingName" required value="${existing ? existing.name : ''}">
             </div>
             <div class="form-group">
                 <label>Unit (e.g., oz, cup, whole)</label>
-                <input type="text" id="ingUnit" required>
+                <input type="text" id="ingUnit" required value="${existing ? existing.unit : 'unit'}">
             </div>
             <div class="form-group">
                 <label>Calories per Unit</label>
-                <input type="number" id="ingCalories" required>
+                <input type="number" id="ingCalories" required value="${existing ? existing.calories : 0}">
             </div>
             <div class="form-group">
                 <label>Cost per Unit ($)</label>
-                <input type="number" step="0.01" id="ingCost" required>
+                <input type="number" step="0.01" id="ingCost" required value="${existing ? existing.cost : 0}">
             </div>
             <div style="display:flex; gap: 10px; margin-top:20px;">
                 <button type="submit" class="btn primary-btn">Save</button>
@@ -442,17 +452,26 @@ function showIngredientModal() {
     
     document.getElementById('ingredientForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const newIng = {
-            id: 'ing_' + Date.now(),
-            name: document.getElementById('ingName').value,
+        const rawName = document.getElementById('ingName').value;
+        const cleanName = scrubIngredientName(rawName);
+        
+        const ingData = {
+            id: existingId || ('ing_' + Date.now()),
+            name: cleanName,
             unit: document.getElementById('ingUnit').value,
             calories: parseFloat(document.getElementById('ingCalories').value),
             cost: parseFloat(document.getElementById('ingCost').value)
         };
-        await dbAPI.add('ingredients', newIng);
+        
+        if (existingId) {
+            await dbAPI.update('ingredients', existingId, ingData);
+        } else {
+            await dbAPI.add('ingredients', ingData);
+        }
+        
         await loadData();
-        closeModal();
         renderIngredients();
+        closeModal();
     });
 }
 
@@ -618,9 +637,10 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             ingredientId = existing.id;
         } else {
             // Auto-create
+            const cleanName = scrubIngredientName(name);
             const newIng = {
                 id: 'ing_' + Date.now(),
-                name: name,
+                name: cleanName,
                 unit: unit,
                 calories: 0,
                 cost: 0
@@ -680,9 +700,10 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
                 selectedIngredients[idx].ingredientId = existing.id;
             } else {
                 // Auto-create on change
+                const cleanName = scrubIngredientName(value);
                 const newIng = {
                     id: 'ing_' + Date.now(),
-                    name: value,
+                    name: cleanName,
                     unit: selectedIngredients[idx].unit || 'each',
                     calories: 0,
                     cost: 0
