@@ -238,6 +238,11 @@ body {
     color: white;
     font-family: inherit;
 }
+
+option {
+    color: #000 !important;
+    background-color: #fff !important;
+}
 .form-control:focus, .form-group input:focus {
     outline: none;
     border-color: var(--accent);
