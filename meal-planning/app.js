@@ -459,12 +459,12 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             </div>
             <div class="form-group">
                 <label>Categories</label>
-                <select id="recipeCategories" multiple style="height: 80px;" required>
-                    <option value="Breakfast">Breakfast</option>
-                    <option value="Lunch">Lunch</option>
-                    <option value="Dinner">Dinner</option>
-                </select>
-                <small style="color:var(--text-secondary)">Hold Ctrl/Cmd to select multiple</small>
+                <div id="categoryButtons" class="category-toggle-container">
+                    <button type="button" class="category-btn" data-value="Breakfast">Breakfast</button>
+                    <button type="button" class="category-btn" data-value="Lunch">Lunch</button>
+                    <button type="button" class="category-btn" data-value="Dinner">Dinner</button>
+                </div>
+                <input type="hidden" id="recipeCategories" required>
             </div>
             
             <div style="margin-top:20px; border-top: 1px solid var(--border-color); padding-top: 10px;">
@@ -491,9 +491,24 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     `;
     modalOverlay.classList.remove('hidden');
     
-    let selectedIngredients = initialIngredients;
+    let selectedIngredients = [...initialIngredients];
+    let selectedCategories = [];
     
-    // Initial preview if pasted
+    // Setup Category Toggles
+    const catBtns = document.querySelectorAll('.category-btn');
+    catBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.classList.toggle('active');
+            updateCategories();
+        });
+    });
+
+    function updateCategories() {
+        selectedCategories = Array.from(document.querySelectorAll('.category-btn.active')).map(b => b.getAttribute('data-value'));
+        document.getElementById('recipeCategories').value = selectedCategories.join(',');
+    }
+
+    // Initial preview if pasted or editing
     if(selectedIngredients.length > 0) {
         updateRecipeIngPreview();
     }
@@ -512,23 +527,36 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
 
     function updateRecipeIngPreview() {
         const list = document.getElementById('recipeIngList');
-        list.innerHTML = selectedIngredients.map(s => {
+        list.innerHTML = selectedIngredients.map((s, idx) => {
             const ing = currentIngredients.find(i => i.id === s.ingredientId);
-            if (!ing) return `<div style="font-size:0.9rem; color:var(--text-secondary);">${s.quantity} x (Unknown Ingredient)</div>`;
-            return `<div style="font-size:0.9rem;">${s.quantity} x ${ing.name}</div>`;
+            const name = ing ? ing.name : "(Unknown Ingredient)";
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius:5px;">
+                    <span>${s.quantity} x ${name}</span>
+                    <button type="button" class="action-btn" onclick="removeIngFromRecipe(${idx})" style="color:var(--accent);"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            `;
         }).join('');
     }
 
+    window.removeIngFromRecipe = (idx) => {
+        selectedIngredients.splice(idx, 1);
+        updateRecipeIngPreview();
+    };
+
     document.getElementById('recipeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const sel = document.getElementById('recipeCategories');
-        const categories = Array.from(sel.selectedOptions).map(opt => opt.value);
         
+        if (selectedCategories.length === 0) {
+            alert("Please select at least one category.");
+            return;
+        }
+
         const newRecipe = {
             id: existingRecipeId || ('rec_' + Date.now()),
             name: document.getElementById('recipeName').value,
             servings: parseInt(document.getElementById('recipeServings').value),
-            categories: categories,
+            categories: selectedCategories,
             ingredients: selectedIngredients
         };
         await dbAPI.add('recipes', newRecipe);
@@ -541,17 +569,20 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
 function editRecipe(id) {
     const recipe = currentRecipes.find(r => r.id === id);
     if (recipe) {
-        // We need to pass the ingredients in the format showRecipeModal expects
         showRecipeModal(recipe.name, recipe.ingredients, recipe.id);
-        // Pre-fill categories (since they are in a multiple select)
+        // Pre-fill categories and servings
         setTimeout(() => {
-            const sel = document.getElementById('recipeCategories');
-            Array.from(sel.options).forEach(opt => {
-                if (recipe.categories.includes(opt.value)) opt.selected = true;
-            });
-            // Set servings
             document.getElementById('recipeServings').value = recipe.servings;
-        }, 10);
+            const catBtns = document.querySelectorAll('.category-btn');
+            catBtns.forEach(btn => {
+                if (recipe.categories.includes(btn.getAttribute('data-value'))) {
+                    btn.classList.add('active');
+                }
+            });
+            // Trigger hidden field update
+            const activeCats = Array.from(document.querySelectorAll('.category-btn.active')).map(b => b.getAttribute('data-value'));
+            document.getElementById('recipeCategories').value = activeCats.join(',');
+        }, 50);
     }
 }
 
@@ -635,23 +666,48 @@ function showImportUrlModal() {
             });
             
             if(!foundSchema) {
-                // Fallback: search for lists that might be ingredients
-                alert("Could not find structured data on this page. We'll try a basic scan, but results may be incomplete.");
-                const lists = doc.querySelectorAll('ul, ol');
-                let potentialIngredients = [];
-                lists.forEach(list => {
-                    const items = list.querySelectorAll('li');
-                    if(items.length > 3 && items.length < 30) {
+                // Fallback: search for ingredients in the DOM
+                console.log("Structured data not found, searching DOM...");
+                
+                // Try common ingredient selectors
+                const ingSelectors = ['.ingredients', '.recipe-ingredients', '.wprm-recipe-ingredient', '.recipe-ingred-list', '[class*="ingredients"] li'];
+                let itemsFound = [];
+                
+                ingSelectors.forEach(sel => {
+                    if (itemsFound.length > 0) return;
+                    const items = doc.querySelectorAll(sel);
+                    if (items.length > 2) {
                         items.forEach(li => {
                             const text = li.innerText.trim();
-                            if(text.match(/^[\\d\\.\\/]+/)) {
-                                potentialIngredients.push(text);
+                            if (text.length > 2 && text.length < 200) {
+                                itemsFound.push(text);
                             }
                         });
                     }
                 });
-                if(potentialIngredients.length > 0) {
-                    recipeData.ingredients = await parseIngredientStrings(potentialIngredients);
+
+                if (itemsFound.length === 0) {
+                    // Final fallback: any list with numbers
+                    const lists = doc.querySelectorAll('ul, ol');
+                    lists.forEach(list => {
+                        const items = list.querySelectorAll('li');
+                        if(items.length > 3 && items.length < 40) {
+                            items.forEach(li => {
+                                const text = li.innerText.trim();
+                                if(text.match(/^[0-9\/\s]+/) || text.length > 5) {
+                                    itemsFound.push(text);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                if(itemsFound.length > 0) {
+                    // Filter out duplicates and junk
+                    const uniqueItems = [...new Set(itemsFound)].filter(t => t.length > 0);
+                    recipeData.ingredients = await parseIngredientStrings(uniqueItems);
+                } else {
+                    alert("Could not find ingredient list on this page automatically.");
                 }
             }
             

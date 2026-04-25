@@ -377,3 +377,33 @@ body {
 }
 
 
+
+.category-toggle-container {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
+.category-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.category-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: var(--accent);
+}
+
+.category-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(100, 108, 255, 0.3);
+}
