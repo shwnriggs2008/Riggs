@@ -421,6 +421,7 @@ function renderRecipes() {
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <h3>${recipe.name}</h3>
                 <div>
+                    <button class="action-btn text-accent" title="Edit" onclick="editRecipe('${recipe.id}')"><i class="fa-solid fa-pen-to-square"></i></button>
                     <button class="action-btn text-accent" title="Share" onclick="shareRecipe('${recipe.id}')"><i class="fa-solid fa-share-nodes"></i></button>
                     <button class="action-btn" title="Delete" onclick="deleteRecipe('${recipe.id}')"><i class="fa-solid fa-trash"></i></button>
                 </div>
@@ -444,9 +445,9 @@ function shareRecipe(id) {
     });
 }
 
-function showRecipeModal(initialName = '', initialIngredients = []) {
+function showRecipeModal(initialName = '', initialIngredients = [], existingRecipeId = null) {
     modalContainer.innerHTML = `
-        <h2>New Recipe</h2>
+        <h2>${existingRecipeId ? 'Edit' : 'New'} Recipe</h2>
         <form id="recipeForm">
             <div class="form-group">
                 <label>Recipe Name</label>
@@ -524,7 +525,7 @@ function showRecipeModal(initialName = '', initialIngredients = []) {
         const categories = Array.from(sel.selectedOptions).map(opt => opt.value);
         
         const newRecipe = {
-            id: 'rec_' + Date.now(),
+            id: existingRecipeId || ('rec_' + Date.now()),
             name: document.getElementById('recipeName').value,
             servings: parseInt(document.getElementById('recipeServings').value),
             categories: categories,
@@ -535,6 +536,23 @@ function showRecipeModal(initialName = '', initialIngredients = []) {
         closeModal();
         renderRecipes();
     });
+}
+
+function editRecipe(id) {
+    const recipe = currentRecipes.find(r => r.id === id);
+    if (recipe) {
+        // We need to pass the ingredients in the format showRecipeModal expects
+        showRecipeModal(recipe.name, recipe.ingredients, recipe.id);
+        // Pre-fill categories (since they are in a multiple select)
+        setTimeout(() => {
+            const sel = document.getElementById('recipeCategories');
+            Array.from(sel.options).forEach(opt => {
+                if (recipe.categories.includes(opt.value)) opt.selected = true;
+            });
+            // Set servings
+            document.getElementById('recipeServings').value = recipe.servings;
+        }, 10);
+    }
 }
 
 async function deleteRecipe(id) {
@@ -650,10 +668,10 @@ function showImportUrlModal() {
 async function parseIngredientStrings(strings) {
     let parsed = [];
     for (const line of strings) {
-        // Robust regex for quantities
-        const match = line.match(/^([\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]+)\s*(.*)/);
-        if(match) {
-            let qtyStr = match[1].trim();
+        // Robust regex for quantities (Optional quantity)
+        const match = line.match(/^([\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]*)\s*(.*)/);
+        if(match && match[2].trim().length > 0) {
+            let qtyStr = (match[1] || "").trim();
             let rest = match[2].trim();
             
             let qty = 1;
@@ -1064,3 +1082,4 @@ window.showProfileModal = showProfileModal;
 window.showRecipeModal = showRecipeModal;
 window.showPasteRecipeModal = showPasteRecipeModal;
 window.showImportUrlModal = showImportUrlModal;
+window.editRecipe = editRecipe;
