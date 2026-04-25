@@ -12,13 +12,18 @@ const modalOverlay = document.getElementById('modalOverlay');
 const modalContainer = document.getElementById('modalContainer');
 
 // --- Initialization ---
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupAuth();
-    await loadData();
-    renderView(currentView);
     
-    // Global Event Listeners
+    // Non-blocking data load
+    loadData().then(() => {
+        renderView(currentView);
+    }).catch(err => {
+        console.error("Initial load failed", err);
+    });
+    
+    // Global Event Listeners - Attach these IMMEDIATELY
     document.getElementById('exportBtn').addEventListener('click', exportToExcel);
     document.getElementById('addIngredientBtn').addEventListener('click', showIngredientModal);
     document.getElementById('addRecipeBtn').addEventListener('click', () => showRecipeModal());
@@ -83,8 +88,9 @@ function setupAuth() {
         }
         
         // Reload data when auth changes
-        await loadData();
-        renderView(currentView);
+        loadData().then(() => {
+            renderView(currentView);
+        });
     });
 }
 
