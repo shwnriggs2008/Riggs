@@ -9,9 +9,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.app().firestore('recipes');
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 const auth = firebase.auth();
+
 
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 
