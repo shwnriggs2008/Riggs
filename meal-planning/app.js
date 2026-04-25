@@ -826,9 +826,10 @@ function showImportUrlModal() {
                 alert("The website blocked the automatic scan, but we'll use your pasted ingredients!");
                 const manualLines = manualText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
                 const manualIngredients = await parseIngredientStrings(manualLines);
-                showRecipeModal("Pasted Recipe", manualIngredients);
+                showRecipeModal("New Recipe", manualIngredients);
             } else {
-                alert("The website blocked the automatic scan. Try pasting the ingredients list into the box below the URL field!");
+                alert("The website blocked the automatic scan. You can now enter the details manually.");
+                showRecipeModal("New Recipe", []);
             }
         }
     });
