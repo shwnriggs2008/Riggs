@@ -636,11 +636,15 @@ function showImportUrlModal() {
         <p style="color:var(--text-secondary); margin-bottom: 15px;">Enter the URL of a recipe website (e.g., AllRecipes, FoodNetwork, etc.). We will try to extract the ingredients and servings automatically.</p>
         <div class="form-group">
             <label>Recipe URL</label>
-            <input type="url" id="importUrlInput" placeholder="https://www.allrecipes.com/recipe/..." required>
+            <input type="url" id="importUrlInput" placeholder="https://www.allrecipes.com/recipe/..." class="form-control">
+        </div>
+        <div class="form-group">
+            <label>Missing something? Paste extra ingredients here</label>
+            <textarea id="importManualText" rows="5" placeholder="Example:\n1 tsp salt\n2 eggs" class="form-control"></textarea>
         </div>
         <div id="importStatus" style="margin-top: 10px; font-size: 0.9rem; color: var(--accent);" class="hidden">Parsing website... this may take a few seconds.</div>
         <div style="display:flex; gap: 10px; margin-top:20px;">
-            <button class="btn primary-btn" id="startImportBtn">Import Recipe</button>
+            <button class="btn primary-btn" id="startImportBtn">Scan & Merge</button>
             <button class="btn icon-btn" onclick="closeModal()">Cancel</button>
         </div>
     `;
@@ -761,9 +765,22 @@ function showImportUrlModal() {
                     // Filter out duplicates and junk
                     const uniqueItems = [...new Set(itemsFound)].filter(t => t.length > 0);
                     recipeData.ingredients = await parseIngredientStrings(uniqueItems);
-                } else {
-                    alert("Could not find ingredient list on this page automatically.");
                 }
+            }
+
+            // --- MERGE MANUAL TEXT ---
+            const manualText = document.getElementById('importManualText').value;
+            if (manualText) {
+                const manualLines = manualText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                const manualIngredients = await parseIngredientStrings(manualLines);
+                
+                // Add manual ingredients if not already present from URL
+                manualIngredients.forEach(mIng => {
+                    const exists = recipeData.ingredients.find(rIng => rIng.ingredientId === mIng.ingredientId);
+                    if (!exists) {
+                        recipeData.ingredients.push(mIng);
+                    }
+                });
             }
             
             showRecipeModal(recipeData.name, recipeData.ingredients, recipeData.servings);
