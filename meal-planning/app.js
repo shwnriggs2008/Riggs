@@ -513,6 +513,7 @@ function showRecipeModal(initialName = '', initialIngredients = []) {
         const list = document.getElementById('recipeIngList');
         list.innerHTML = selectedIngredients.map(s => {
             const ing = currentIngredients.find(i => i.id === s.ingredientId);
+            if (!ing) return `<div style="font-size:0.9rem; color:var(--text-secondary);">${s.quantity} x (Unknown Ingredient)</div>`;
             return `<div style="font-size:0.9rem;">${s.quantity} x ${ing.name}</div>`;
         }).join('');
     }
@@ -649,8 +650,8 @@ function showImportUrlModal() {
 function parseIngredientStrings(strings) {
     let parsed = [];
     strings.forEach(line => {
-        // Reuse logic from paste modal
-        const match = line.match(/^([\\d\\s\\.\\/\\-]+)\\s*(.*)/);
+        // Robust regex for quantities
+        const match = line.match(/^([\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]+)\s*(.*)/);
         if(match) {
             let qtyStr = match[1].trim();
             let rest = match[2].trim();
@@ -718,12 +719,11 @@ function showPasteRecipeModal() {
         
         if(!text) return;
         
-        const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
         let parsedIngredients = [];
         
         lines.forEach(line => {
-            // Very simple parser: expects "Quantity [Rest of string]"
-            const match = line.match(/^([\\d\\.\\/]+)\\s*(.*)/);
+            const match = line.match(/^([\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]+)\s*(.*)/);
             if(match) {
                 let qtyStr = match[1];
                 let rest = match[2];
