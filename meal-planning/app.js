@@ -164,7 +164,29 @@ async function loadData() {
         { name: 'Peas (Frozen)', unit: 'oz', calories: 22, cost: 0.10 },
         { name: 'Green Beans', unit: 'oz', calories: 9, cost: 0.15 },
         { name: 'Chickpeas', unit: 'oz', calories: 45, cost: 0.12 },
-        { name: 'Lentils', unit: 'oz', calories: 32, cost: 0.10 }
+        { name: 'Lentils', unit: 'oz', calories: 32, cost: 0.10 },
+        // Asian (Chinese/Japanese/Thai)
+        { name: 'Sesame Oil', unit: 'tbsp', calories: 120, cost: 0.30 },
+        { name: 'Ginger (Fresh)', unit: 'oz', calories: 22, cost: 0.50 },
+        { name: 'Rice Vinegar', unit: 'tbsp', calories: 3, cost: 0.12 },
+        { name: 'Fish Sauce', unit: 'tbsp', calories: 10, cost: 0.20 },
+        { name: 'Miso Paste', unit: 'tbsp', calories: 35, cost: 0.40 },
+        { name: 'Hoisin Sauce', unit: 'tbsp', calories: 35, cost: 0.15 },
+        { name: 'Rice Noodles', unit: 'oz', calories: 100, cost: 0.25 },
+        // Mexican
+        { name: 'Corn Tortillas', unit: 'whole', calories: 50, cost: 0.10 },
+        { name: 'Flour Tortillas', unit: 'whole', calories: 140, cost: 0.20 },
+        { name: 'Salsa', unit: 'oz', calories: 10, cost: 0.15 },
+        { name: 'Avocado', unit: 'whole', calories: 240, cost: 1.50 },
+        { name: 'Jalapeño', unit: 'whole', calories: 5, cost: 0.20 },
+        { name: 'Sour Cream', unit: 'tbsp', calories: 30, cost: 0.10 },
+        { name: 'Taco Seasoning', unit: 'tsp', calories: 10, cost: 0.05 },
+        // Italian
+        { name: 'Parmesan Cheese', unit: 'oz', calories: 110, cost: 0.50 },
+        { name: 'Mozzarella Cheese', unit: 'oz', calories: 85, cost: 0.30 },
+        { name: 'Ricotta Cheese', unit: 'oz', calories: 50, cost: 0.25 },
+        { name: 'Fresh Basil', unit: 'oz', calories: 7, cost: 1.20 },
+        { name: 'Pesto', unit: 'tbsp', calories: 80, cost: 0.40 }
     ];
 
     let addedAny = false;
