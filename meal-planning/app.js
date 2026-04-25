@@ -654,16 +654,33 @@ function showImportUrlModal() {
         status.classList.remove('hidden');
         
         try {
-            // Use corsproxy.io to bypass CORS
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            const html = await response.text();
+            let html = "";
+            let response;
+            
+            // Try Proxy 1
+            try {
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                response = await fetch(proxyUrl);
+                html = await response.text();
+            } catch (e) { console.warn("Proxy 1 failed, trying fallback..."); }
+
+            // Fallback Proxy if Proxy 1 failed or returned an error page
+            if (!html || html.toLowerCase().includes('oops') || html.toLowerCase().includes('not right') || html.toLowerCase().includes('denied')) {
+                const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                response = await fetch(fallbackUrl);
+                const json = await response.json();
+                html = json.contents;
+            }
             
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
             
+            if (!doc.body || doc.body.innerText.length < 200) {
+                throw new Error("Page content too short or blocked");
+            }
+
             let recipeData = {
-                name: doc.title.split('|')[0].split('-')[0].trim(),
+                name: (doc.querySelector('h1') ? doc.querySelector('h1').innerText : doc.title).split('|')[0].split('-')[0].trim(),
                 ingredients: [],
                 servings: 2
             };
@@ -696,7 +713,7 @@ function showImportUrlModal() {
                         recipeData.servings = parseInt(recipeSchema.recipeYield) || 2;
                         
                         if (recipeSchema.recipeIngredient) {
-                            recipeData.ingredients = parseIngredientStrings(recipeSchema.recipeIngredient);
+                            recipeData.ingredients = await parseIngredientStrings(recipeSchema.recipeIngredient);
                             foundSchema = true;
                         }
                     }
