@@ -119,7 +119,33 @@ async function loadData() {
         { name: 'Greek Yogurt', unit: 'oz', calories: 20, cost: 0.15 },
         { name: 'Honey', unit: 'tbsp', calories: 60, cost: 0.20 },
         { name: 'Soy Sauce', unit: 'tbsp', calories: 10, cost: 0.10 },
-        { name: 'Lemon', unit: 'whole', calories: 20, cost: 0.60 }
+        { name: 'Lemon', unit: 'whole', calories: 20, cost: 0.60 },
+        // Spices & Herbs
+        { name: 'Cinnamon', unit: 'tsp', calories: 6, cost: 0.05 },
+        { name: 'Paprika', unit: 'tsp', calories: 6, cost: 0.05 },
+        { name: 'Cumin', unit: 'tsp', calories: 8, cost: 0.05 },
+        { name: 'Dried Oregano', unit: 'tsp', calories: 5, cost: 0.05 },
+        { name: 'Dried Basil', unit: 'tsp', calories: 5, cost: 0.05 },
+        { name: 'Chili Powder', unit: 'tsp', calories: 8, cost: 0.05 },
+        { name: 'Red Pepper Flakes', unit: 'tsp', calories: 6, cost: 0.05 },
+        { name: 'Parsley (Fresh)', unit: 'oz', calories: 10, cost: 0.80 },
+        { name: 'Cilantro (Fresh)', unit: 'oz', calories: 10, cost: 0.80 },
+        // Dressings & Condiments
+        { name: 'Ranch Dressing', unit: 'tbsp', calories: 70, cost: 0.12 },
+        { name: 'Ketchup', unit: 'tbsp', calories: 15, cost: 0.05 },
+        { name: 'Mayonnaise', unit: 'tbsp', calories: 90, cost: 0.10 },
+        { name: 'Mustard', unit: 'tsp', calories: 5, cost: 0.03 },
+        { name: 'Balsamic Vinegar', unit: 'tbsp', calories: 15, cost: 0.15 },
+        // More Produce
+        { name: 'Corn (Canned)', unit: 'oz', calories: 20, cost: 0.10 },
+        { name: 'Black Beans', unit: 'oz', calories: 25, cost: 0.12 },
+        { name: 'Lettuce (Iceberg)', unit: 'head', calories: 75, cost: 1.50 },
+        { name: 'Cabbage', unit: 'lb', calories: 110, cost: 0.80 },
+        { name: 'Carrot', unit: 'whole', calories: 30, cost: 0.25 },
+        { name: 'Bell Pepper', unit: 'whole', calories: 30, cost: 1.00 },
+        { name: 'Broccoli', unit: 'lb', calories: 150, cost: 1.80 },
+        { name: 'Spinach', unit: 'oz', calories: 7, cost: 0.40 },
+        { name: 'Cucumber', unit: 'whole', calories: 45, cost: 0.70 }
     ];
 
     let addedAny = false;
