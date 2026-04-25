@@ -253,7 +253,10 @@ async function deduplicateIngredients() {
     const duplicates = [];
 
     ings.forEach(ing => {
-        const name = ing.name.toLowerCase().trim();
+        let name = ing.name.toLowerCase().trim();
+        // Basic plural handling (remove trailing s)
+        if (name.endsWith('s') && name.length > 3) name = name.slice(0, -1);
+        
         if (seen.has(name)) {
             duplicates.push(ing.id);
         } else {
@@ -266,6 +269,19 @@ async function deduplicateIngredients() {
         for (const id of duplicates) {
             await dbAPI.delete('ingredients', id);
         }
+        return duplicates.length;
+    }
+    return 0;
+}
+
+async function manualCleanup() {
+    const count = await deduplicateIngredients();
+    if (count > 0) {
+        alert(`Cleaned up ${count} duplicate ingredients!`);
+        await loadData();
+        renderIngredients();
+    } else {
+        alert("No duplicates found.");
     }
 }
 
@@ -327,6 +343,28 @@ function updateDashboard() {
 function renderIngredients() {
     const tbody = document.getElementById('ingredientsList');
     tbody.innerHTML = '';
+    
+    // Add header with cleanup button if not already there or just manage the parent
+    const view = document.getElementById('view-ingredients');
+    if (!document.getElementById('ingHeader')) {
+        const header = document.createElement('div');
+        header.id = 'ingHeader';
+        header.style = "display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;";
+        header.innerHTML = `
+            <h2>Ingredients</h2>
+            <div style="display:flex; gap:10px;">
+                <button class="btn outline-btn" onclick="manualCleanup()"><i class="fa-solid fa-broom"></i> Clean Duplicates</button>
+                <button class="btn primary-btn" onclick="showIngredientModal()"><i class="fa-solid fa-plus"></i> Add New</button>
+            </div>
+        `;
+        view.insertBefore(header, view.firstChild);
+        // Hide the original h2/button if they exist in HTML
+        const oldH2 = view.querySelector('h2:not(#ingHeader h2)');
+        const oldBtn = view.querySelector('.primary-btn:not(#ingHeader .primary-btn)');
+        if(oldH2) oldH2.style.display = 'none';
+        if(oldBtn) oldBtn.style.display = 'none';
+    }
+
     currentIngredients.forEach(ing => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1139,3 +1177,5 @@ window.showRecipeModal = showRecipeModal;
 window.showPasteRecipeModal = showPasteRecipeModal;
 window.showImportUrlModal = showImportUrlModal;
 window.editRecipe = editRecipe;
+window.manualCleanup = manualCleanup;
+window.removeIngFromRecipe = (idx) => { /* already attached in showRecipeModal */ };
