@@ -539,19 +539,35 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             
             <div style="margin-top:20px; border-top: 1px solid var(--border-color); padding-top: 10px;">
                 <h3>Ingredients</h3>
-                <div id="recipeIngList" style="display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 5px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; padding: 0 10px;">
+                <div id="recipeIngList" style="display: grid; grid-template-columns: 1.5fr 0.8fr 0.7fr 1.2fr auto; gap: 5px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; padding: 0 10px;">
                     <div>Ingredient Name</div>
-                    <div>Quantity</div>
+                    <div>Qty</div>
+                    <div>Unit</div>
                     <div>Notes</div>
                     <div></div>
                 </div>
                 <div id="recipeIngContainer"></div>
-                <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 10px; margin-top: 10px;">
-                    <input type="text" id="ingNameInput" list="allIngredientsList" placeholder="Type ingredient name..." class="form-control">
+                <div style="display:grid; grid-template-columns: 1.5fr 0.8fr 0.7fr 1.2fr auto; gap: 10px; margin-top: 10px;">
+                    <input type="text" id="ingNameInput" list="allIngredientsList" placeholder="Name..." class="form-control">
                     <datalist id="allIngredientsList">
                         ${currentIngredients.map(i => `<option value="${i.name}">`).join('')}
                     </datalist>
                     <input type="number" id="ingQty" placeholder="Qty" class="form-control">
+                    <select id="ingUnit" class="form-control">
+                        <option value="each">each</option>
+                        <option value="tsp">tsp</option>
+                        <option value="tbsp">tbsp</option>
+                        <option value="cup">cup</option>
+                        <option value="oz">oz</option>
+                        <option value="lb">lb</option>
+                        <option value="pinch">pinch</option>
+                        <option value="dash">dash</option>
+                        <option value="clove">clove</option>
+                        <option value="slice">slice</option>
+                        <option value="can">can</option>
+                        <option value="g">g</option>
+                        <option value="ml">ml</option>
+                    </select>
                     <input type="text" id="ingNotes" placeholder="Notes" class="form-control">
                     <button type="button" id="addRecipeIngBtn" class="btn icon-btn"><i class="fa-solid fa-plus"></i></button>
                 </div>
@@ -591,6 +607,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     document.getElementById('addRecipeIngBtn').addEventListener('click', async () => {
         const name = document.getElementById('ingNameInput').value.trim();
         const qty = parseFloat(document.getElementById('ingQty').value);
+        const unit = document.getElementById('ingUnit').value;
         const notes = document.getElementById('ingNotes').value;
         if(!name || isNaN(qty)) return;
         
@@ -604,7 +621,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             const newIng = {
                 id: 'ing_' + Date.now(),
                 name: name,
-                unit: 'unit',
+                unit: unit,
                 calories: 0,
                 cost: 0
             };
@@ -616,7 +633,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             if(dl) dl.innerHTML += `<option value="${name}">`;
         }
 
-        selectedIngredients.push({ ingredientId: ingredientId, quantity: qty, notes: notes });
+        selectedIngredients.push({ ingredientId: ingredientId, quantity: qty, unit: unit, notes: notes });
         updateRecipeIngPreview();
         
         // Reset inputs
@@ -627,16 +644,20 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
 
     function updateRecipeIngPreview() {
         const container = document.getElementById('recipeIngContainer');
+        const unitOptions = ['each', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'slice', 'can', 'g', 'ml'];
+        
         container.innerHTML = selectedIngredients.map((s, idx) => {
             const ing = currentIngredients.find(i => i.id === s.ingredientId);
             const name = ing ? ing.name : "(Unknown)";
+            const currentUnit = s.unit || ing?.unit || 'each';
+            
             return `
-                <div style="display:grid; grid-template-columns: 1.5fr 1fr 1.5fr auto; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius:5px; gap: 10px;">
+                <div style="display:grid; grid-template-columns: 1.5fr 0.8fr 0.7fr 1.2fr auto; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius:5px; gap: 10px;">
                     <input type="text" class="form-control sm-input" value="${name}" list="allIngredientsList" onchange="updateIngRow(${idx}, 'name', this.value)">
-                    <div style="display:flex; align-items:center; gap:5px;">
-                        <input type="number" step="any" class="form-control sm-input" value="${s.quantity}" oninput="updateIngRow(${idx}, 'quantity', this.value)" style="width:70px;">
-                        <span style="font-size:0.75rem; color:var(--text-secondary);">${ing?.unit || ''}</span>
-                    </div>
+                    <input type="number" step="any" class="form-control sm-input" value="${s.quantity}" oninput="updateIngRow(${idx}, 'quantity', this.value)">
+                    <select class="form-control sm-input" onchange="updateIngRow(${idx}, 'unit', this.value)">
+                        ${unitOptions.map(u => `<option value="${u}" ${u === currentUnit ? 'selected' : ''}>${u}</option>`).join('')}
+                    </select>
                     <input type="text" class="form-control sm-input" value="${s.notes || ''}" placeholder="Notes" oninput="updateIngRow(${idx}, 'notes', this.value)">
                     <button type="button" class="action-btn" onclick="removeIngFromRecipe(${idx})" style="color:var(--accent);"><i class="fa-solid fa-xmark"></i></button>
                 </div>
@@ -652,6 +673,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     window.updateIngRow = async (idx, field, value) => {
         if (field === 'quantity') selectedIngredients[idx].quantity = parseFloat(value) || 0;
         if (field === 'notes') selectedIngredients[idx].notes = value;
+        if (field === 'unit') selectedIngredients[idx].unit = value;
         if (field === 'name') {
             const existing = currentIngredients.find(i => i.name.toLowerCase() === value.toLowerCase());
             if (existing) {
@@ -661,7 +683,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
                 const newIng = {
                     id: 'ing_' + Date.now(),
                     name: value,
-                    unit: 'unit',
+                    unit: selectedIngredients[idx].unit || 'each',
                     calories: 0,
                     cost: 0
                 };
