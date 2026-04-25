@@ -539,15 +539,22 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             
             <div style="margin-top:20px; border-top: 1px solid var(--border-color); padding-top: 10px;">
                 <h3>Ingredients</h3>
-                <div id="recipeIngList"></div>
-                <div style="display:flex; gap: 10px; margin-top: 10px;">
-                    <select id="ingSelect" class="form-control" style="flex: 1;">
+                <div id="recipeIngList" style="display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 5px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; padding: 0 10px;">
+                    <div>Ingredient</div>
+                    <div>Quantity</div>
+                    <div>Notes</div>
+                    <div></div>
+                </div>
+                <div id="recipeIngContainer"></div>
+                <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 10px; margin-top: 10px;">
+                    <select id="ingSelect" class="form-control">
                         ${currentIngredients.length > 0 ? 
                             currentIngredients.map(i => `<option value="${i.id}">${i.name} (${i.unit})</option>`).join('') :
-                            '<option value="">No ingredients found - Add some first!</option>'
+                            '<option value="">No ingredients found</option>'
                         }
                     </select>
-                    <input type="number" id="ingQty" placeholder="Qty" style="width: 100px;" class="form-control">
+                    <input type="number" id="ingQty" placeholder="Qty" class="form-control">
+                    <input type="text" id="ingNotes" placeholder="Notes (optional)" class="form-control">
                     <button type="button" id="addRecipeIngBtn" class="btn icon-btn"><i class="fa-solid fa-plus"></i></button>
                 </div>
             </div>
@@ -586,23 +593,28 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     document.getElementById('addRecipeIngBtn').addEventListener('click', () => {
         const id = document.getElementById('ingSelect').value;
         const qty = parseFloat(document.getElementById('ingQty').value);
-        if(!id || !qty) return;
+        const notes = document.getElementById('ingNotes').value;
+        if(!id || isNaN(qty)) return;
         
-        const existing = selectedIngredients.find(s => s.ingredientId === id);
-        if(existing) existing.quantity += qty;
-        else selectedIngredients.push({ ingredientId: id, quantity: qty });
-        
+        selectedIngredients.push({ ingredientId: id, quantity: qty, notes: notes });
         updateRecipeIngPreview();
+        
+        // Reset inputs
+        document.getElementById('ingQty').value = '';
+        document.getElementById('ingNotes').value = '';
     });
 
     function updateRecipeIngPreview() {
-        const list = document.getElementById('recipeIngList');
-        list.innerHTML = selectedIngredients.map((s, idx) => {
+        const container = document.getElementById('recipeIngContainer');
+        container.innerHTML = selectedIngredients.map((s, idx) => {
             const ing = currentIngredients.find(i => i.id === s.ingredientId);
-            const name = ing ? ing.name : "(Unknown Ingredient)";
+            const name = ing ? ing.name : "(Unknown)";
+            const unit = ing ? ing.unit : "";
             return `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius:5px;">
-                    <span>${s.quantity} x ${name}</span>
+                <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr auto; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius:5px; gap: 10px;">
+                    <div style="font-weight:600;">${name}</div>
+                    <div>${s.quantity} ${unit}</div>
+                    <div style="font-style:italic; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.notes || ''}</div>
                     <button type="button" class="action-btn" onclick="removeIngFromRecipe(${idx})" style="color:var(--accent);"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             `;
@@ -912,59 +924,73 @@ async function parseIngredientStrings(strings) {
     for (const line of strings) {
         // Robust regex for quantities (Optional quantity)
         const match = line.match(/^([\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]*)\s*(.*)/);
-        if(match && match[2].trim().length > 0) {
-            let qtyStr = (match[1] || "").trim();
-            let rest = match[2].trim();
-            
-            let qty = 1;
-            try {
-                if(qtyStr.includes('/')) {
-                    const parts = qtyStr.split('/');
-                    qty = parseFloat(parts[0]) / parseFloat(parts[1]);
-                } else if(qtyStr.includes(' ')) {
-                    const parts = qtyStr.split(' ');
-                    qty = parts.reduce((acc, p) => acc + (p.includes('/') ? (p.split('/')[0]/p.split('/')[1]) : parseFloat(p)), 0);
-                } else {
-                    qty = parseFloat(qtyStr);
+            if(match && match[2].trim().length > 0) {
+                let qtyStr = (match[1] || "").trim();
+                let rawRest = match[2].trim();
+                
+                // Split notes (comma or parentheses)
+                let nameToMatch = rawRest;
+                let notes = "";
+                if(rawRest.includes(',')) {
+                    const parts = rawRest.split(',');
+                    nameToMatch = parts[0].trim();
+                    notes = parts.slice(1).join(',').trim();
+                } else if(rawRest.includes('(')) {
+                    const parts = rawRest.split('(');
+                    nameToMatch = parts[0].trim();
+                    notes = parts.slice(1).join('(').replace(')', '').trim();
                 }
-            } catch(e) {}
-            
-            if(isNaN(qty)) qty = 1;
 
-            let bestMatchId = null;
-            let bestMatchScore = 0;
-            currentIngredients.forEach(ing => {
-                if(rest.toLowerCase().includes(ing.name.toLowerCase())) {
-                    let score = ing.name.length;
-                    if(score > bestMatchScore) {
-                        bestMatchScore = score;
-                        bestMatchId = ing.id;
+                let qty = 1;
+                try {
+                    if(qtyStr.includes('/')) {
+                        const parts = qtyStr.split('/');
+                        qty = parseFloat(parts[0]) / parseFloat(parts[1]);
+                    } else if(qtyStr.includes(' ')) {
+                        const parts = qtyStr.split(' ');
+                        qty = parts.reduce((acc, p) => acc + (p.includes('/') ? (p.split('/')[0]/p.split('/')[1]) : parseFloat(p)), 0);
+                    } else {
+                        qty = parseFloat(qtyStr);
                     }
-                }
-            });
-            
-            if(!bestMatchId) {
-                // Auto-create missing ingredient
-                const info = extractIngredientInfo(rest);
-                const newIng = {
-                    id: 'ing_' + Date.now() + Math.random().toString(36).substr(2, 5),
-                    name: info.name,
-                    unit: info.unit,
-                    calories: guessCalories(info.name, info.unit),
-                    cost: 0.25
-                };
-                await dbAPI.add('ingredients', newIng);
-                currentIngredients.push(newIng);
-                bestMatchId = newIng.id;
-                console.log(`Auto-created ingredient: ${newIng.name}`);
-            }
+                } catch(e) {}
+                
+                if(isNaN(qty)) qty = 1;
 
-            if(bestMatchId) {
-                let existing = parsed.find(p => p.ingredientId === bestMatchId);
-                if(existing) existing.quantity += qty;
-                else parsed.push({ ingredientId: bestMatchId, quantity: qty });
+                let bestMatchId = null;
+                let bestMatchScore = 0;
+                currentIngredients.forEach(ing => {
+                    if(nameToMatch.toLowerCase().includes(ing.name.toLowerCase())) {
+                        let score = ing.name.length;
+                        if(score > bestMatchScore) {
+                            bestMatchScore = score;
+                            bestMatchId = ing.id;
+                        }
+                    }
+                });
+                
+                if(!bestMatchId) {
+                    // Auto-create missing ingredient
+                    const info = extractIngredientInfo(nameToMatch);
+                    const newIng = {
+                        id: 'ing_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                        name: info.name,
+                        unit: info.unit,
+                        calories: guessCalories(info.name, info.unit),
+                        cost: 0.25
+                    };
+                    await dbAPI.add('ingredients', newIng);
+                    currentIngredients.push(newIng);
+                    bestMatchId = newIng.id;
+                }
+
+                if(bestMatchId) {
+                    parsed.push({ 
+                        ingredientId: bestMatchId, 
+                        quantity: qty,
+                        notes: notes
+                    });
+                }
             }
-        }
     }
     return parsed;
 }
