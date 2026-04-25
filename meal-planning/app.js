@@ -607,14 +607,16 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     function updateRecipeIngPreview() {
         const container = document.getElementById('recipeIngContainer');
         container.innerHTML = selectedIngredients.map((s, idx) => {
-            const ing = currentIngredients.find(i => i.id === s.ingredientId);
-            const name = ing ? ing.name : "(Unknown)";
-            const unit = ing ? ing.unit : "";
             return `
-                <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr auto; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius:5px; gap: 10px;">
-                    <div style="font-weight:600;">${name}</div>
-                    <div>${s.quantity} ${unit}</div>
-                    <div style="font-style:italic; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.notes || ''}</div>
+                <div style="display:grid; grid-template-columns: 1.5fr 1fr 1.5fr auto; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius:5px; gap: 10px;">
+                    <select class="form-control sm-input" onchange="updateIngRow(${idx}, 'ingredientId', this.value)">
+                        ${currentIngredients.map(i => `<option value="${i.id}" ${i.id === s.ingredientId ? 'selected' : ''}>${i.name}</option>`).join('')}
+                    </select>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <input type="number" step="any" class="form-control sm-input" value="${s.quantity}" oninput="updateIngRow(${idx}, 'quantity', this.value)" style="width:70px;">
+                        <span style="font-size:0.75rem; color:var(--text-secondary);">${currentIngredients.find(i => i.id === s.ingredientId)?.unit || ''}</span>
+                    </div>
+                    <input type="text" class="form-control sm-input" value="${s.notes || ''}" placeholder="Notes" oninput="updateIngRow(${idx}, 'notes', this.value)">
                     <button type="button" class="action-btn" onclick="removeIngFromRecipe(${idx})" style="color:var(--accent);"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             `;
@@ -624,6 +626,15 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     window.removeIngFromRecipe = (idx) => {
         selectedIngredients.splice(idx, 1);
         updateRecipeIngPreview();
+    };
+
+    window.updateIngRow = (idx, field, value) => {
+        if (field === 'quantity') selectedIngredients[idx].quantity = parseFloat(value) || 0;
+        if (field === 'notes') selectedIngredients[idx].notes = value;
+        if (field === 'ingredientId') {
+            selectedIngredients[idx].ingredientId = value;
+            updateRecipeIngPreview(); // Refresh to update unit label
+        }
     };
 
     document.getElementById('recipeForm').addEventListener('submit', async (e) => {
