@@ -296,19 +296,44 @@ async function manualCleanup() {
 function setupNavigation() {
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
-            navLinks.forEach(l => l.classList.remove('active'));
-            const target = e.currentTarget;
-            target.classList.add('active');
-            
-            const viewId = target.getAttribute('data-view');
-            switchView(viewId);
+            try {
+                navLinks.forEach(l => l.classList.remove('active'));
+                const target = e.currentTarget;
+                target.classList.add('active');
+                
+                const viewId = target.getAttribute('data-view');
+                console.log("Switching to view:", viewId);
+                switchView(viewId);
+            } catch (err) {
+                console.error("Navigation error:", err);
+            }
         });
     });
 }
 
 function switchView(viewId) {
     views.forEach(v => v.classList.remove('active-view'));
-    document.getElementById(`view-${viewId}`).classList.add('active-view');
+    const target = document.getElementById('view-' + viewId);
+    if (target) {
+        target.classList.add('active-view');
+    } else {
+        console.error("View element not found: view-" + viewId);
+    }
+    
+    // Update Header Title
+    const headerTitle = document.querySelector('.top-header h2');
+    if (headerTitle) {
+        const titleMap = {
+            'dashboard': 'Dashboard',
+            'calendar': 'Meal Calendar',
+            'shopping-list': 'Shopping List',
+            'recipes': 'Recipes',
+            'ingredients': 'Ingredients',
+            'profiles': 'User Profiles'
+        };
+        headerTitle.innerText = titleMap[viewId] || 'PlanEats';
+    }
+
     currentView = viewId;
     renderView(viewId);
 }
