@@ -229,7 +229,7 @@ body {
 .modal h2 { margin-bottom: 20px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; margin-bottom: 8px; color: var(--text-secondary); }
-.form-group input, .form-group select {
+.form-control, .form-group input, .form-group select {
     width: 100%;
     padding: 10px 14px;
     border-radius: 8px;
@@ -238,10 +238,11 @@ body {
     color: white;
     font-family: inherit;
 }
-.form-group input:focus {
+.form-control:focus, .form-group input:focus {
     outline: none;
     border-color: var(--accent);
 }
+
 
 /* Grid & Tables */
 .table-container { overflow-x: auto; padding: 16px; }

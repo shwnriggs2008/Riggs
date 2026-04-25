@@ -93,6 +93,24 @@ function setupAuth() {
 // --- Data Management ---
 async function loadData() {
     currentIngredients = await dbAPI.getAll('ingredients');
+    
+    // Seed some basic ingredients if the list is empty
+    if (currentIngredients.length === 0) {
+        const seedData = [
+            { id: 'ing_1', name: 'Flour', unit: 'cup', calories: 455, cost: 0.10 },
+            { id: 'ing_2', name: 'Egg', unit: 'whole', calories: 70, cost: 0.25 },
+            { id: 'ing_3', name: 'Milk', unit: 'cup', calories: 150, cost: 0.50 },
+            { id: 'ing_4', name: 'Sugar', unit: 'cup', calories: 770, cost: 0.15 },
+            { id: 'ing_5', name: 'Butter', unit: 'tbsp', calories: 100, cost: 0.12 },
+            { id: 'ing_6', name: 'Chicken Breast', unit: 'oz', calories: 45, cost: 0.30 }
+        ];
+        // Don't await add for each to save time, but do update currentIngredients
+        for (const item of seedData) {
+            await dbAPI.add('ingredients', item);
+        }
+        currentIngredients = await dbAPI.getAll('ingredients');
+    }
+
     currentRecipes = await dbAPI.getAll('recipes');
     currentMealPlan = await dbAPI.getAll('mealPlan');
     updateDashboard();
@@ -104,6 +122,7 @@ async function loadData() {
         handleSharedRecipe(sharedRecipeId);
     }
 }
+
 
 async function handleSharedRecipe(recipeId) {
     try {
@@ -331,13 +350,17 @@ function showRecipeModal(initialName = '', initialIngredients = []) {
                 <h3>Ingredients</h3>
                 <div id="recipeIngList"></div>
                 <div style="display:flex; gap: 10px; margin-top: 10px;">
-                    <select id="ingSelect" class="form-group">
-                        ${currentIngredients.map(i => `<option value="${i.id}">${i.name} (${i.unit})</option>`).join('')}
+                    <select id="ingSelect" class="form-control" style="flex: 1;">
+                        ${currentIngredients.length > 0 ? 
+                            currentIngredients.map(i => `<option value="${i.id}">${i.name} (${i.unit})</option>`).join('') :
+                            '<option value="">No ingredients found - Add some first!</option>'
+                        }
                     </select>
-                    <input type="number" id="ingQty" placeholder="Qty" style="width: 80px;" class="form-group">
+                    <input type="number" id="ingQty" placeholder="Qty" style="width: 100px;" class="form-control">
                     <button type="button" id="addRecipeIngBtn" class="btn icon-btn"><i class="fa-solid fa-plus"></i></button>
                 </div>
             </div>
+
 
             <div style="display:flex; gap: 10px; margin-top:20px;">
                 <button type="submit" class="btn primary-btn">Save Recipe</button>
