@@ -9,9 +9,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.app().firestore('recipes');
 const auth = firebase.auth();
+
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 
 // Scoped Collection Helper
