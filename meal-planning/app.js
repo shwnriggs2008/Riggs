@@ -814,12 +814,22 @@ function showImportUrlModal() {
                 });
             }
             
+            status.classList.add('hidden');
             showRecipeModal(recipeData.name, recipeData.ingredients, recipeData.servings);
             
         } catch (e) {
             console.error(e);
-            alert("Failed to import recipe. The website might be blocking access or is not compatible.");
             status.classList.add('hidden');
+            
+            const manualText = document.getElementById('importManualText').value;
+            if (manualText) {
+                alert("The website blocked the automatic scan, but we'll use your pasted ingredients!");
+                const manualLines = manualText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                const manualIngredients = await parseIngredientStrings(manualLines);
+                showRecipeModal("Pasted Recipe", manualIngredients);
+            } else {
+                alert("The website blocked the automatic scan. Try pasting the ingredients list into the box below the URL field!");
+            }
         }
     });
 }
