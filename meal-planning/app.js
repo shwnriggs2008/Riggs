@@ -540,21 +540,19 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             <div style="margin-top:20px; border-top: 1px solid var(--border-color); padding-top: 10px;">
                 <h3>Ingredients</h3>
                 <div id="recipeIngList" style="display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 5px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; padding: 0 10px;">
-                    <div>Ingredient</div>
+                    <div>Ingredient Name</div>
                     <div>Quantity</div>
                     <div>Notes</div>
                     <div></div>
                 </div>
                 <div id="recipeIngContainer"></div>
                 <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 10px; margin-top: 10px;">
-                    <select id="ingSelect" class="form-control">
-                        ${currentIngredients.length > 0 ? 
-                            currentIngredients.map(i => `<option value="${i.id}">${i.name} (${i.unit})</option>`).join('') :
-                            '<option value="">No ingredients found</option>'
-                        }
-                    </select>
+                    <input type="text" id="ingNameInput" list="allIngredientsList" placeholder="Type ingredient name..." class="form-control">
+                    <datalist id="allIngredientsList">
+                        ${currentIngredients.map(i => `<option value="${i.name}">`).join('')}
+                    </datalist>
                     <input type="number" id="ingQty" placeholder="Qty" class="form-control">
-                    <input type="text" id="ingNotes" placeholder="Notes (optional)" class="form-control">
+                    <input type="text" id="ingNotes" placeholder="Notes" class="form-control">
                     <button type="button" id="addRecipeIngBtn" class="btn icon-btn"><i class="fa-solid fa-plus"></i></button>
                 </div>
             </div>
@@ -590,16 +588,39 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
         updateRecipeIngPreview();
     }
     
-    document.getElementById('addRecipeIngBtn').addEventListener('click', () => {
-        const id = document.getElementById('ingSelect').value;
+    document.getElementById('addRecipeIngBtn').addEventListener('click', async () => {
+        const name = document.getElementById('ingNameInput').value.trim();
         const qty = parseFloat(document.getElementById('ingQty').value);
         const notes = document.getElementById('ingNotes').value;
-        if(!id || isNaN(qty)) return;
+        if(!name || isNaN(qty)) return;
         
-        selectedIngredients.push({ ingredientId: id, quantity: qty, notes: notes });
+        let ingredientId = null;
+        const existing = currentIngredients.find(i => i.name.toLowerCase() === name.toLowerCase());
+        
+        if (existing) {
+            ingredientId = existing.id;
+        } else {
+            // Auto-create
+            const newIng = {
+                id: 'ing_' + Date.now(),
+                name: name,
+                unit: 'unit',
+                calories: 0,
+                cost: 0
+            };
+            await dbAPI.add('ingredients', newIng);
+            currentIngredients.push(newIng);
+            ingredientId = newIng.id;
+            // Update datalist
+            const dl = document.getElementById('allIngredientsList');
+            if(dl) dl.innerHTML += `<option value="${name}">`;
+        }
+
+        selectedIngredients.push({ ingredientId: ingredientId, quantity: qty, notes: notes });
         updateRecipeIngPreview();
         
         // Reset inputs
+        document.getElementById('ingNameInput').value = '';
         document.getElementById('ingQty').value = '';
         document.getElementById('ingNotes').value = '';
     });
@@ -607,14 +628,14 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     function updateRecipeIngPreview() {
         const container = document.getElementById('recipeIngContainer');
         container.innerHTML = selectedIngredients.map((s, idx) => {
+            const ing = currentIngredients.find(i => i.id === s.ingredientId);
+            const name = ing ? ing.name : "(Unknown)";
             return `
                 <div style="display:grid; grid-template-columns: 1.5fr 1fr 1.5fr auto; align-items:center; margin-bottom:5px; font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius:5px; gap: 10px;">
-                    <select class="form-control sm-input" onchange="updateIngRow(${idx}, 'ingredientId', this.value)">
-                        ${currentIngredients.map(i => `<option value="${i.id}" ${i.id === s.ingredientId ? 'selected' : ''}>${i.name}</option>`).join('')}
-                    </select>
+                    <input type="text" class="form-control sm-input" value="${name}" list="allIngredientsList" onchange="updateIngRow(${idx}, 'name', this.value)">
                     <div style="display:flex; align-items:center; gap:5px;">
                         <input type="number" step="any" class="form-control sm-input" value="${s.quantity}" oninput="updateIngRow(${idx}, 'quantity', this.value)" style="width:70px;">
-                        <span style="font-size:0.75rem; color:var(--text-secondary);">${currentIngredients.find(i => i.id === s.ingredientId)?.unit || ''}</span>
+                        <span style="font-size:0.75rem; color:var(--text-secondary);">${ing?.unit || ''}</span>
                     </div>
                     <input type="text" class="form-control sm-input" value="${s.notes || ''}" placeholder="Notes" oninput="updateIngRow(${idx}, 'notes', this.value)">
                     <button type="button" class="action-btn" onclick="removeIngFromRecipe(${idx})" style="color:var(--accent);"><i class="fa-solid fa-xmark"></i></button>
@@ -628,12 +649,27 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
         updateRecipeIngPreview();
     };
 
-    window.updateIngRow = (idx, field, value) => {
+    window.updateIngRow = async (idx, field, value) => {
         if (field === 'quantity') selectedIngredients[idx].quantity = parseFloat(value) || 0;
         if (field === 'notes') selectedIngredients[idx].notes = value;
-        if (field === 'ingredientId') {
-            selectedIngredients[idx].ingredientId = value;
-            updateRecipeIngPreview(); // Refresh to update unit label
+        if (field === 'name') {
+            const existing = currentIngredients.find(i => i.name.toLowerCase() === value.toLowerCase());
+            if (existing) {
+                selectedIngredients[idx].ingredientId = existing.id;
+            } else {
+                // Auto-create on change
+                const newIng = {
+                    id: 'ing_' + Date.now(),
+                    name: value,
+                    unit: 'unit',
+                    calories: 0,
+                    cost: 0
+                };
+                await dbAPI.add('ingredients', newIng);
+                currentIngredients.push(newIng);
+                selectedIngredients[idx].ingredientId = newIng.id;
+            }
+            updateRecipeIngPreview(); 
         }
     };
 
