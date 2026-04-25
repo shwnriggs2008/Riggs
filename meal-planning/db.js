@@ -1,3 +1,7 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, getDoc, setDoc, addDoc, deleteDoc, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyBDVHoPzrsEhyd1vT5gZ3ziNixcKOwijE0",
   authDomain: "recipes-20b72.firebaseapp.com",
@@ -9,27 +13,25 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-
-const googleProvider = new firebase.auth.GoogleAuthProvider();
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app, "recipes");
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 // Scoped Collection Helper
-const getCollection = (collectionName) => {
+const getCollectionRef = (collectionName) => {
     const user = auth.currentUser;
     if (user) {
-        return db.collection('users').doc(user.uid).collection(collectionName);
+        return collection(db, 'users', user.uid, collectionName);
     }
-    return db.collection(collectionName); // Fallback to global if not logged in (or handle differently)
+    return collection(db, collectionName);
 };
 
-// API for app.js (Drop-in replacement for old IndexedDB methods)
-const dbAPI = {
+// API for app.js
+window.dbAPI = {
     async login() {
         try {
-            const result = await auth.signInWithPopup(googleProvider);
+            const result = await signInWithPopup(auth, googleProvider);
             return result.user;
         } catch (e) {
             console.error("Login failed", e);
@@ -38,35 +40,52 @@ const dbAPI = {
     },
 
     async logout() {
-        await auth.signOut();
+        await signOut(auth);
     },
 
     onAuth(callback) {
-        auth.onAuthStateChanged(callback);
+        onAuthStateChanged(auth, callback);
+    },
+
+    async getOne(collectionName, id) {
+        try {
+            const colRef = getCollectionRef(collectionName);
+            const d = await getDoc(doc(colRef, id));
+            if (d.exists()) {
+                let data = d.data();
+                data.id = d.id;
+                return data;
+            }
+            return null;
+        } catch (e) {
+            console.error("Error getting document: ", e);
+            throw e;
+        }
     },
 
     async getAll(collectionName) {
         try {
-            const snapshot = await getCollection(collectionName).get();
-            return snapshot.docs.map(doc => {
-                let data = doc.data();
-                if(!data.id) data.id = doc.id;
+            const q = query(getCollectionRef(collectionName));
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(d => {
+                let data = d.data();
+                if(!data.id) data.id = d.id;
                 return data;
             });
         } catch (e) {
             console.error("Error getting documents: ", e);
-            return [];
+            throw e;
         }
     },
 
     async add(collectionName, data) {
         try {
-            const col = getCollection(collectionName);
+            const colRef = getCollectionRef(collectionName);
             if (data.id) {
-                await col.doc(data.id).set(data);
+                await setDoc(doc(colRef, data.id), data);
                 return data.id;
             } else {
-                const docRef = await col.add(data);
+                const docRef = await addDoc(colRef, data);
                 return docRef.id;
             }
         } catch (e) {
@@ -77,7 +96,8 @@ const dbAPI = {
 
     async delete(collectionName, id) {
         try {
-            await getCollection(collectionName).doc(id).delete();
+            const colRef = getCollectionRef(collectionName);
+            await deleteDoc(doc(colRef, id));
         } catch (e) {
             console.error("Error deleting document: ", e);
             throw e;
@@ -86,10 +106,11 @@ const dbAPI = {
     
     async clear(collectionName) {
         try {
-            const snapshot = await getCollection(collectionName).get();
-            const batch = db.batch();
-            snapshot.docs.forEach((doc) => {
-                batch.delete(doc.ref);
+            const colRef = getCollectionRef(collectionName);
+            const snapshot = await getDocs(colRef);
+            const batch = writeBatch(db);
+            snapshot.docs.forEach((d) => {
+                batch.delete(d.ref);
             });
             await batch.commit();
         } catch (e) {
@@ -99,3 +120,5 @@ const dbAPI = {
     }
 };
 
+// Export db for raw access if needed (though app.js uses dbAPI)
+window.db = db;

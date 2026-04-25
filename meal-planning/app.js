@@ -225,12 +225,8 @@ async function loadData() {
 
 async function handleSharedRecipe(recipeId) {
     try {
-        // Fetch recipe from Firebase directly by doc id
-        const doc = await db.collection('recipes').doc(recipeId).get();
-        if (doc.exists) {
-            const recipe = doc.data();
-            recipe.id = doc.id;
-            
+        const recipe = await dbAPI.getOne('recipes', recipeId);
+        if (recipe) {
             // Ask user to save it
             if(confirm(`Someone shared a recipe with you: "${recipe.name}". Would you like to save it?`)) {
                 // Ensure we don't duplicate id
@@ -1011,3 +1007,18 @@ function exportShoppingList() {
     window.XLSX.utils.book_append_sheet(wb, ws, "Shopping List");
     window.XLSX.writeFile(wb, "ShoppingList_Export.xlsx");
 }
+// Attach globals for HTML onclicks
+window.closeModal = closeModal;
+window.deleteIngredient = deleteIngredient;
+window.shareRecipe = shareRecipe;
+window.deleteRecipe = deleteRecipe;
+window.deleteProfile = deleteProfile;
+window.changeMonth = changeMonth;
+window.generatePlan = generatePlan;
+window.exportToExcel = exportToExcel;
+window.exportShoppingList = exportShoppingList;
+window.showIngredientModal = showIngredientModal;
+window.showProfileModal = showProfileModal;
+window.showRecipeModal = showRecipeModal;
+window.showPasteRecipeModal = showPasteRecipeModal;
+window.showImportUrlModal = showImportUrlModal;
