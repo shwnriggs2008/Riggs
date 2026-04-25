@@ -36,6 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert("Login failed. Make sure you've enabled Google Auth in Firebase Console.");
         }
     });
+    if(document.getElementById('headerLoginBtn')) {
+        document.getElementById('headerLoginBtn').addEventListener('click', async () => {
+            try {
+                await dbAPI.login();
+            } catch (e) {
+                alert("Login failed. Make sure you've enabled Google Auth in Firebase Console.");
+            }
+        });
+    }
     document.getElementById('logoutBtn').addEventListener('click', () => dbAPI.logout());
     
     // Shopping List Event Listeners
@@ -49,15 +58,26 @@ function setupAuth() {
     dbAPI.onAuth(async (user) => {
         const loginBtn = document.getElementById('loginBtn');
         const userProfile = document.getElementById('userProfile');
+        const headerLoginBtn = document.getElementById('headerLoginBtn');
+        const headerUserProfile = document.getElementById('headerUserProfile');
         
         if (user) {
-            loginBtn.classList.add('hidden');
-            userProfile.classList.remove('hidden');
-            document.getElementById('userAvatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + user.displayName;
-            document.getElementById('userName').innerText = user.displayName;
+            if(loginBtn) loginBtn.classList.add('hidden');
+            if(userProfile) {
+                userProfile.classList.remove('hidden');
+                document.getElementById('userAvatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + user.displayName;
+                document.getElementById('userName').innerText = user.displayName;
+            }
+            if(headerLoginBtn) headerLoginBtn.classList.add('hidden');
+            if(headerUserProfile) {
+                headerUserProfile.classList.remove('hidden');
+                document.getElementById('headerUserAvatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + user.displayName;
+            }
         } else {
-            loginBtn.classList.remove('hidden');
-            userProfile.classList.add('hidden');
+            if(loginBtn) loginBtn.classList.remove('hidden');
+            if(userProfile) userProfile.classList.add('hidden');
+            if(headerLoginBtn) headerLoginBtn.classList.remove('hidden');
+            if(headerUserProfile) headerUserProfile.classList.add('hidden');
         }
         
         // Reload data when auth changes
@@ -65,6 +85,7 @@ function setupAuth() {
         renderView(currentView);
     });
 }
+
 
 
 // --- Data Management ---
