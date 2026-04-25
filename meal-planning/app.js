@@ -93,7 +93,9 @@ function setupAuth() {
 // // --- Data Management ---
 async function loadData() {
     try {
+        await deduplicateIngredients();
         currentIngredients = await dbAPI.getAll('ingredients');
+
         
         // Seed common ingredients that aren't already in the list
         const seedData = [
@@ -245,7 +247,30 @@ async function handleSharedRecipe(recipeId) {
     }
 }
 
+async function deduplicateIngredients() {
+    const ings = await dbAPI.getAll('ingredients');
+    const seen = new Map();
+    const duplicates = [];
+
+    ings.forEach(ing => {
+        const name = ing.name.toLowerCase().trim();
+        if (seen.has(name)) {
+            duplicates.push(ing.id);
+        } else {
+            seen.set(name, ing.id);
+        }
+    });
+
+    if (duplicates.length > 0) {
+        console.log(`Cleaning up ${duplicates.length} duplicate ingredients...`);
+        for (const id of duplicates) {
+            await dbAPI.delete('ingredients', id);
+        }
+    }
+}
+
 // --- Navigation ---
+
 function setupNavigation() {
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
