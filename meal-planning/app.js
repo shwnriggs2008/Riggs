@@ -24,6 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Global Event Listeners - Attach these IMMEDIATELY
+    document.getElementById('backupJsonBtn').addEventListener('click', exportBackupJSON);
+    document.getElementById('restoreJsonBtn').addEventListener('click', () => document.getElementById('restoreFileInput').click());
+    document.getElementById('restoreFileInput').addEventListener('change', importBackupJSON);
+    
     document.getElementById('exportBtn').addEventListener('click', exportToExcel);
     document.getElementById('addIngredientBtn').addEventListener('click', showIngredientModal);
     document.getElementById('addRecipeBtn').addEventListener('click', () => showRecipeModal());
@@ -95,7 +99,48 @@ function setupAuth() {
     });
 }
 
+// --- Data Import/Export ---
+async function exportBackupJSON() {
+    const data = {
+        ingredients: await dbAPI.getAll('ingredients'),
+        recipes: await dbAPI.getAll('recipes'),
+        mealPlan: await dbAPI.getAll('mealPlan'),
+        profiles: await dbAPI.getAll('profiles')
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `planeats_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+}
 
+async function importBackupJSON(e) {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const data = JSON.parse(event.target.result);
+            if(confirm("This will overwrite your existing data. Proceed?")) {
+                for(const col of ['ingredients', 'recipes', 'mealPlan', 'profiles']) {
+                    if(data[col]) {
+                        // Clear existing
+                        const old = await dbAPI.getAll(col);
+                        for(const item of old) await dbAPI.delete(col, item.id);
+                        // Add new
+                        for(const item of data[col]) await dbAPI.add(col, item);
+                    }
+                }
+                alert("Data restored successfully!");
+                location.reload();
+            }
+        } catch(e) {
+            alert("Invalid JSON file.");
+        }
+    };
+    reader.readAsText(file);
+}
 
 // // --- Data Management ---
 async function loadData() {

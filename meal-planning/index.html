@@ -75,6 +75,17 @@
                             <p id="stat-recipes">0</p>
                         </div>
                     </div>
+                    
+                    <div class="glass-panel" style="margin-top: 30px; padding: 25px;">
+                        <h3><i class="fa-solid fa-database"></i> App Data Management</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">Download a full backup of your recipes, ingredients, and settings, or restore from a previous backup file.</p>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn outline-btn" id="backupJsonBtn"><i class="fa-solid fa-download"></i> Download JSON Backup</button>
+                            <button class="btn magic-btn" id="restoreJsonBtn"><i class="fa-solid fa-upload"></i> Restore from Backup</button>
+                            <input type="file" id="restoreFileInput" accept=".json" class="hidden">
+                        </div>
+                        <p style="margin-top: 15px; font-size: 0.8rem; color: var(--text-secondary);"><i class="fa-solid fa-circle-info"></i> Excel export is still available in the sidebar for viewing/printing.</p>
+                    </div>
                 </div>
 
                 <!-- Calendar View -->
