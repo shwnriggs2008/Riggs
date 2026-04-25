@@ -94,22 +94,48 @@ function setupAuth() {
 async function loadData() {
     currentIngredients = await dbAPI.getAll('ingredients');
     
-    // Seed some basic ingredients if the list is empty
-    if (currentIngredients.length === 0) {
-        const seedData = [
-            { id: 'ing_1', name: 'Flour', unit: 'cup', calories: 455, cost: 0.10 },
-            { id: 'ing_2', name: 'Egg', unit: 'whole', calories: 70, cost: 0.25 },
-            { id: 'ing_3', name: 'Milk', unit: 'cup', calories: 150, cost: 0.50 },
-            { id: 'ing_4', name: 'Sugar', unit: 'cup', calories: 770, cost: 0.15 },
-            { id: 'ing_5', name: 'Butter', unit: 'tbsp', calories: 100, cost: 0.12 },
-            { id: 'ing_6', name: 'Chicken Breast', unit: 'oz', calories: 45, cost: 0.30 }
-        ];
-        // Don't await add for each to save time, but do update currentIngredients
-        for (const item of seedData) {
+    // Seed common ingredients that aren't already in the list
+    const seedData = [
+        { name: 'Flour', unit: 'cup', calories: 455, cost: 0.10 },
+        { name: 'Egg', unit: 'whole', calories: 70, cost: 0.25 },
+        { name: 'Milk', unit: 'cup', calories: 150, cost: 0.50 },
+        { name: 'Sugar', unit: 'cup', calories: 770, cost: 0.15 },
+        { name: 'Butter', unit: 'tbsp', calories: 100, cost: 0.12 },
+        { name: 'Chicken Breast', unit: 'oz', calories: 45, cost: 0.35 },
+        { name: 'Ground Beef', unit: 'oz', calories: 70, cost: 0.45 },
+        { name: 'Cheddar Cheese', unit: 'oz', calories: 115, cost: 0.25 },
+        { name: 'Bread Crumbs', unit: 'cup', calories: 400, cost: 0.30 },
+        { name: 'Rice', unit: 'cup', calories: 680, cost: 0.20 },
+        { name: 'Pasta', unit: 'oz', calories: 100, cost: 0.10 },
+        { name: 'Olive Oil', unit: 'tbsp', calories: 120, cost: 0.15 },
+        { name: 'Onion', unit: 'whole', calories: 40, cost: 0.50 },
+        { name: 'Garlic', unit: 'clove', calories: 5, cost: 0.10 },
+        { name: 'Tomato Sauce', unit: 'oz', calories: 15, cost: 0.08 },
+        { name: 'Potato', unit: 'whole', calories: 160, cost: 0.40 },
+        { name: 'Salt', unit: 'tsp', calories: 0, cost: 0.01 },
+        { name: 'Black Pepper', unit: 'tsp', calories: 5, cost: 0.05 },
+        { name: 'Water', unit: 'cup', calories: 0, cost: 0.00 },
+        { name: 'Bacon', unit: 'slice', calories: 45, cost: 0.40 },
+        { name: 'Greek Yogurt', unit: 'oz', calories: 20, cost: 0.15 },
+        { name: 'Honey', unit: 'tbsp', calories: 60, cost: 0.20 },
+        { name: 'Soy Sauce', unit: 'tbsp', calories: 10, cost: 0.10 },
+        { name: 'Lemon', unit: 'whole', calories: 20, cost: 0.60 }
+    ];
+
+    let addedAny = false;
+    for (const item of seedData) {
+        const exists = currentIngredients.find(i => i.name.toLowerCase() === item.name.toLowerCase());
+        if (!exists) {
+            item.id = 'ing_' + Date.now() + Math.random().toString(36).substr(2, 5);
             await dbAPI.add('ingredients', item);
+            addedAny = true;
         }
+    }
+    
+    if (addedAny) {
         currentIngredients = await dbAPI.getAll('ingredients');
     }
+
 
     currentRecipes = await dbAPI.getAll('recipes');
     currentMealPlan = await dbAPI.getAll('mealPlan');
