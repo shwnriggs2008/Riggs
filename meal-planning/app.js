@@ -633,7 +633,7 @@ function showImportUrlModal() {
                     }
                 });
                 if(potentialIngredients.length > 0) {
-                    recipeData.ingredients = parseIngredientStrings(potentialIngredients);
+                    recipeData.ingredients = await parseIngredientStrings(potentialIngredients);
                 }
             }
             
@@ -647,9 +647,9 @@ function showImportUrlModal() {
     });
 }
 
-function parseIngredientStrings(strings) {
+async function parseIngredientStrings(strings) {
     let parsed = [];
-    strings.forEach(line => {
+    for (const line of strings) {
         // Robust regex for quantities
         const match = line.match(/^([\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]+)\s*(.*)/);
         if(match) {
@@ -683,14 +683,68 @@ function parseIngredientStrings(strings) {
                 }
             });
             
+            if(!bestMatchId) {
+                // Auto-create missing ingredient
+                const info = extractIngredientInfo(rest);
+                const newIng = {
+                    id: 'ing_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    name: info.name,
+                    unit: info.unit,
+                    calories: guessCalories(info.name, info.unit),
+                    cost: 0.25
+                };
+                await dbAPI.add('ingredients', newIng);
+                currentIngredients.push(newIng);
+                bestMatchId = newIng.id;
+                console.log(`Auto-created ingredient: ${newIng.name}`);
+            }
+
             if(bestMatchId) {
                 let existing = parsed.find(p => p.ingredientId === bestMatchId);
                 if(existing) existing.quantity += qty;
                 else parsed.push({ ingredientId: bestMatchId, quantity: qty });
             }
         }
-    });
+    }
     return parsed;
+}
+
+function extractIngredientInfo(str) {
+    const units = ['cup', 'cups', 'oz', 'ounce', 'ounces', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'lb', 'pound', 'pounds', 'g', 'gram', 'grams', 'kg', 'ml', 'liter', 'whole', 'clove', 'cloves', 'slice', 'slices'];
+    let words = str.toLowerCase().split(' ');
+    let unit = 'unit';
+    let nameWords = [];
+
+    let foundUnit = false;
+    words.forEach(word => {
+        const cleanWord = word.replace(/[(),]/g, '');
+        if (!foundUnit && units.includes(cleanWord)) {
+            unit = cleanWord;
+            foundUnit = true;
+        } else if (word !== 'of' && word !== 'and') {
+            nameWords.push(word);
+        }
+    });
+
+    return {
+        unit: unit,
+        name: nameWords.join(' ').charAt(0).toUpperCase() + nameWords.join(' ').slice(1)
+    };
+}
+
+function guessCalories(name, unit) {
+    const n = name.toLowerCase();
+    // Simple heuristic map
+    if (n.includes('oil') || n.includes('butter') || n.includes('fat')) return 120; // per tbsp/unit
+    if (n.includes('sugar') || n.includes('honey') || n.includes('syrup')) return 60;
+    if (n.includes('flour') || n.includes('rice') || n.includes('pasta')) return 400; // per cup
+    if (n.includes('chicken') || n.includes('beef') || n.includes('pork') || n.includes('meat')) return 250; // per 4oz/unit
+    if (n.includes('cheese') || n.includes('milk') || n.includes('cream')) return 100;
+    if (n.includes('egg')) return 70;
+    if (n.includes('vegetable') || n.includes('onion') || n.includes('garlic') || n.includes('pepper') || n.includes('lettuce')) return 20;
+    if (n.includes('fruit') || n.includes('apple') || n.includes('banana') || n.includes('berry')) return 80;
+    if (n.includes('nut') || n.includes('seed')) return 160;
+    return 100; // Default fallback
 }
 
 function showPasteRecipeModal() {
@@ -720,49 +774,12 @@ function showPasteRecipeModal() {
         if(!text) return;
         
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-        let parsedIngredients = [];
         
-        lines.forEach(line => {
-            const match = line.match(/^([\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]+)\s*(.*)/);
-            if(match) {
-                let qtyStr = match[1];
-                let rest = match[2];
-                
-                let qty = 1;
-                if(qtyStr.includes('/')) {
-                    const parts = qtyStr.split('/');
-                    if(parts.length === 2 && parseFloat(parts[1]) !== 0) {
-                        qty = parseFloat(parts[0]) / parseFloat(parts[1]);
-                    }
-                } else {
-                    qty = parseFloat(qtyStr);
-                }
-                
-                let bestMatchId = null;
-                let bestMatchScore = 0;
-                currentIngredients.forEach(ing => {
-                    if(rest.toLowerCase().includes(ing.name.toLowerCase())) {
-                        let score = ing.name.length;
-                        if(score > bestMatchScore) {
-                            bestMatchScore = score;
-                            bestMatchId = ing.id;
-                        }
-                    }
-                });
-                
-                if(bestMatchId) {
-                    let existing = parsedIngredients.find(p => p.ingredientId === bestMatchId);
-                    if(existing) {
-                        existing.quantity += qty;
-                    } else {
-                        parsedIngredients.push({ ingredientId: bestMatchId, quantity: qty });
-                    }
-                }
-            }
-        });
-        
-        // Show recipe modal pre-filled
-        showRecipeModal(name, parsedIngredients);
+        (async () => {
+            let parsedIngredients = await parseIngredientStrings(lines);
+            // Show recipe modal pre-filled
+            showRecipeModal(name, parsedIngredients);
+        })();
     });
 }
 
