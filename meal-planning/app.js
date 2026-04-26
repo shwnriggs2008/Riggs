@@ -1641,52 +1641,94 @@ let scraperData = { name: '', ingredients: [], image: '', sourceUrl: '' };
 async function showVisualScraper(url) {
     scraperData = { name: '', ingredients: [], image: '', sourceUrl: url };
     
+    // Make modal full-screen for this view
+    modalOverlay.style.padding = '0';
+    modalContainer.style.maxWidth = '100vw';
+    modalContainer.style.width = '100vw';
+    modalContainer.style.height = '100vh';
+    modalContainer.style.borderRadius = '0';
+    modalContainer.style.margin = '0';
+
     modalContainer.innerHTML = `
-        <div style="display:flex; flex-direction:column; height: 90vh; width: 95vw; max-width: 1400px; color: white;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-                <h2 style="margin:0;">Visual Scraper Assistant</h2>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn primary-btn" id="finishVisualImport"><i class="fa-solid fa-check"></i> Import to Recipe</button>
-                    <button class="btn icon-btn" onclick="closeModal()">Cancel</button>
+        <div style="display:flex; flex-direction:column; height: 100vh; width: 100vw; background: var(--bg-dark); color: white; padding: 20px; box-sizing: border-box;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                <div style="display:flex; align-items:center; gap:20px;">
+                    <h2 style="margin:0; font-size: 1.5rem; color: var(--accent);">Visual Scraper Assistant</h2>
+                    <div style="font-size: 0.8rem; background: rgba(255,255,255,0.05); padding: 5px 12px; border-radius: 20px; color: var(--text-secondary);">
+                        <i class="fa-solid fa-link"></i> ${url.length > 50 ? url.substring(0, 50) + '...' : url}
+                    </div>
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <button class="btn primary-btn" id="finishVisualImport" style="padding: 10px 25px;"><i class="fa-solid fa-check"></i> Import Recipe</button>
+                    <button class="btn icon-btn" id="closeScraper" style="padding: 10px 20px;">Cancel</button>
                 </div>
             </div>
             
-            <div style="display:grid; grid-template-columns: 1fr 350px; gap: 20px; flex:1; overflow:hidden;">
-                <!-- Left: Website Content -->
-                <div class="glass-panel" style="overflow-y:auto; padding:20px; background: rgba(0,0,0,0.3);">
-                    <div id="scraperStatus" style="padding: 20px; text-align: center;">
-                        <i class="fa-solid fa-spinner fa-spin"></i> Fetching website content...
+            <div style="display:grid; grid-template-columns: 1.2fr 1fr 400px; gap: 20px; flex:1; overflow:hidden; min-height: 0;">
+                <!-- Column 1: Reference View (Iframe) -->
+                <div class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.4);">
+                    <div style="padding: 10px; font-size: 0.8rem; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">
+                        <i class="fa-solid fa-globe"></i> Website Reference (Read-Only)
                     </div>
-                    <div id="scraperContent" style="display:none;">
-                        <p style="font-size: 0.85rem; color: var(--accent); margin-bottom: 15px; background: rgba(139,92,246,0.1); padding: 10px; border-radius: 8px;">
-                            <i class="fa-solid fa-mouse-pointer"></i> <strong>How to use:</strong> Click on a title to set the name. Click an image to set the recipe photo. Click text blocks to add them to your ingredients list.
+                    <iframe src="https://corsproxy.io/?${encodeURIComponent(url)}" style="flex:1; border:none; background: white; border-radius: 0 0 12px 12px;"></iframe>
+                </div>
+
+                <!-- Column 2: Selectable Content -->
+                <div class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.2);">
+                    <div style="padding: 10px; font-size: 0.8rem; border-bottom: 1px solid var(--border-color); color: var(--accent);">
+                        <i class="fa-solid fa-i-cursor"></i> Click Elements to Select
+                    </div>
+                    <div id="scraperStatus" style="padding: 40px; text-align: center; color: var(--text-secondary);">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading selectable elements...
+                    </div>
+                    <div id="scraperContent" style="display:none; flex:1; overflow-y:auto; padding: 20px;">
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px; background: rgba(139,92,246,0.1); padding: 12px; border-radius: 8px; border-left: 4px solid var(--accent);">
+                            <strong>Tip:</strong> Look at the website on the left, then click the matching text or photo here.
                         </p>
-                        <div id="scraperElementsContainer" style="display: flex; flex-direction: column; gap: 5px;"></div>
+                        <div id="scraperElementsContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
                     </div>
                 </div>
                 
-                <!-- Right: Import Preview -->
-                <div class="glass-panel" style="padding:20px; display:flex; flex-direction:column; gap:15px; border-left: 2px solid var(--accent); background: rgba(15,23,42,0.8);">
-                    <h3 style="margin:0; font-size: 1.1rem;">Import Preview</h3>
+                <!-- Column 3: Import Preview -->
+                <div class="glass-panel" style="display:flex; flex-direction:column; gap:20px; padding:25px; background: rgba(15,23,42,0.9); border-left: 1px solid var(--accent);">
+                    <h3 style="margin:0; font-size: 1.2rem; display:flex; align-items:center; gap:10px;">
+                        <i class="fa-solid fa-file-import" style="color:var(--accent);"></i> New Recipe
+                    </h3>
+                    
                     <div class="form-group">
-                        <label style="font-size: 0.8rem;">Recipe Name</label>
-                        <input type="text" id="vName" placeholder="Click title on left..." class="form-control" style="background: rgba(255,255,255,0.05);">
+                        <label style="color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Recipe Name</label>
+                        <input type="text" id="vName" placeholder="Click a title..." class="form-control" style="background: rgba(255,255,255,0.05); font-size: 1.1rem; border: 1px solid var(--border-color);">
                     </div>
+
                     <div class="form-group">
-                        <label style="font-size: 0.8rem;">Main Image</label>
-                        <div id="vImagePreview" style="height: 140px; border-radius:8px; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; overflow:hidden; border: 1px dashed var(--border-color);">
-                            <span style="color:var(--text-secondary); font-size:0.8rem;">No image selected</span>
+                        <label style="color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Cover Photo</label>
+                        <div id="vImagePreview" style="height: 180px; border-radius:12px; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; overflow:hidden; border: 2px dashed var(--border-color); transition: all 0.3s;">
+                            <div style="text-align:center; color: var(--text-secondary);">
+                                <i class="fa-solid fa-image" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.3;"></i>
+                                <div style="font-size: 0.8rem;">Click a photo on the left</div>
+                            </div>
                         </div>
                     </div>
+
                     <div class="form-group" style="flex:1; display:flex; flex-direction:column;">
-                        <label style="font-size: 0.8rem;">Ingredients List</label>
-                        <textarea id="vIngredients" style="flex:1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color:white; border-radius:8px; padding:10px; font-size:0.85rem; resize: none;" placeholder="Click ingredient lines on left..."></textarea>
+                        <label style="color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Ingredients</label>
+                        <textarea id="vIngredients" style="flex:1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color:white; border-radius:12px; padding:15px; font-size:0.9rem; resize: none; line-height: 1.5;" placeholder="Click ingredient lines..."></textarea>
                     </div>
                 </div>
             </div>
         </div>
     `;
-    modalOverlay.classList.remove('hidden');
+    
+    document.getElementById('closeScraper').onclick = () => {
+        // Restore modal styles
+        modalOverlay.style.padding = '';
+        modalContainer.style.maxWidth = '';
+        modalContainer.style.width = '';
+        modalContainer.style.height = '';
+        modalContainer.style.borderRadius = '';
+        modalContainer.style.margin = '';
+        closeModal();
+    };
 
     try {
         const proxy = 'https://corsproxy.io/?' + encodeURIComponent(url);
@@ -1766,6 +1808,14 @@ async function showVisualScraper(url) {
                 return;
             }
             
+            // Restore modal styles
+            modalOverlay.style.padding = '';
+            modalContainer.style.maxWidth = '';
+            modalContainer.style.width = '';
+            modalContainer.style.height = '';
+            modalContainer.style.borderRadius = '';
+            modalContainer.style.margin = '';
+
             const ingredients = await parseIngredientStrings(ingText.split('\n'));
             if(image) window.lastScrapedImage = image;
             showRecipeModal(name, ingredients, null, url);
