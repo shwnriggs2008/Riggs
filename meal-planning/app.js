@@ -1385,7 +1385,26 @@ function showProfileModal() {
         </form>
     `;
     modalOverlay.classList.remove('hidden');
+
+    let websiteHidden = false;
+    document.getElementById('toggleWebsiteView').onclick = () => {
+        websiteHidden = !websiteHidden;
+        const col = document.getElementById('websiteColumn');
+        const grid = document.getElementById('scraperGrid');
+        const btn = document.getElementById('toggleWebsiteView');
+        
+        if (websiteHidden) {
+            col.style.display = 'none';
+            grid.style.gridTemplateColumns = '1.5fr 400px';
+            btn.innerHTML = '<i class="fa-solid fa-eye"></i> Show Website View';
+        } else {
+            col.style.display = 'flex';
+            grid.style.gridTemplateColumns = '1.2fr 1fr 400px';
+            btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Hide Website View';
+        }
+    };
     
+    document.getElementById('closeScraper').onclick = () => {
     document.getElementById('profileForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         await dbAPI.add('profiles', {
@@ -1654,6 +1673,9 @@ async function showVisualScraper(url) {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
                 <div style="display:flex; align-items:center; gap:20px;">
                     <h2 style="margin:0; font-size: 1.5rem; color: var(--accent);">Visual Scraper Assistant</h2>
+                    <button class="btn outline-btn" id="toggleWebsiteView" style="font-size: 0.8rem; padding: 5px 15px;">
+                        <i class="fa-solid fa-eye-slash"></i> Hide Website View
+                    </button>
                     <div style="font-size: 0.8rem; background: rgba(255,255,255,0.05); padding: 5px 12px; border-radius: 20px; color: var(--text-secondary);">
                         <i class="fa-solid fa-link"></i> ${url.length > 50 ? url.substring(0, 50) + '...' : url}
                     </div>
@@ -1664,13 +1686,13 @@ async function showVisualScraper(url) {
                 </div>
             </div>
             
-            <div style="display:grid; grid-template-columns: 1.2fr 1fr 400px; gap: 20px; flex:1; overflow:hidden; min-height: 0;">
+            <div id="scraperGrid" style="display:grid; grid-template-columns: 1.2fr 1fr 400px; gap: 20px; flex:1; overflow:hidden; min-height: 0; transition: grid-template-columns 0.3s ease;">
                 <!-- Column 1: Reference View (Iframe) -->
-                <div class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.4);">
+                <div id="websiteColumn" class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.4);">
                     <div style="padding: 10px; font-size: 0.8rem; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">
-                        <i class="fa-solid fa-globe"></i> Website Reference (Read-Only)
+                        <i class="fa-solid fa-globe"></i> Website Reference
                     </div>
-                    <iframe src="https://corsproxy.io/?${encodeURIComponent(url)}" style="flex:1; border:none; background: white; border-radius: 0 0 12px 12px;"></iframe>
+                    <iframe src="https://corsproxy.io/?${encodeURIComponent(url)}" style="flex:1; border:none; background: white; border-radius: 0 0 12px 12px; width:100%; height:100%;"></iframe>
                 </div>
 
                 <!-- Column 2: Selectable Content -->
