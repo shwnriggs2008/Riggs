@@ -1386,25 +1386,6 @@ function showProfileModal() {
     `;
     modalOverlay.classList.remove('hidden');
 
-    let websiteHidden = false;
-    document.getElementById('toggleWebsiteView').onclick = () => {
-        websiteHidden = !websiteHidden;
-        const col = document.getElementById('websiteColumn');
-        const grid = document.getElementById('scraperGrid');
-        const btn = document.getElementById('toggleWebsiteView');
-        
-        if (websiteHidden) {
-            col.style.display = 'none';
-            grid.style.gridTemplateColumns = '1.5fr 400px';
-            btn.innerHTML = '<i class="fa-solid fa-eye"></i> Show Website View';
-        } else {
-            col.style.display = 'flex';
-            grid.style.gridTemplateColumns = '1.2fr 1fr 400px';
-            btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Hide Website View';
-        }
-    };
-    
-    document.getElementById('closeScraper').onclick = () => {
     document.getElementById('profileForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         await dbAPI.add('profiles', {
