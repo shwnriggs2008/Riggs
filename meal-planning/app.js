@@ -552,16 +552,17 @@ function renderRecipes() {
         let perServingCals = recipe.servings > 0 ? (totalCals / recipe.servings) : 0;
 
         el.innerHTML = `
+            ${recipe.image ? `<img src="${recipe.image}" style="width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:15px;">` : ''}
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <h3>${recipe.name}</h3>
-                <div>
-                    <button class="action-btn text-accent" title="Edit" onclick="editRecipe('${recipe.id}')"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button class="action-btn text-accent" title="Share" onclick="shareRecipe('${recipe.id}')"><i class="fa-solid fa-share-nodes"></i></button>
-                    <button class="action-btn" title="Delete" onclick="deleteRecipe('${recipe.id}')"><i class="fa-solid fa-trash"></i></button>
+                <h3 style="margin-bottom: 5px; color: var(--accent);">${recipe.name}</h3>
+                <div style="display:flex; gap:5px;">
+                    <button class="action-btn" onclick="editRecipe('${recipe.id}')"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="action-btn" onclick="shareRecipe('${recipe.id}')"><i class="fa-solid fa-share-nodes"></i></button>
+                    <button class="action-btn" onclick="deleteRecipe('${recipe.id}')"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
-            <div class="recipe-tags">${tagsHtml}</div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Servings: ${recipe.servings}</p>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">${recipe.categories.join(' • ')}</p>
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Servings: ${recipe.servings || 'N/A'}</p>
             <div style="margin-top: 10px; font-size: 0.85rem; border-top: 1px solid var(--border-color); padding-top: 10px;">
                 <p><i class="fa-solid fa-fire text-accent"></i> ${perServingCals.toFixed(0)} kcal / serving</p>
                 <p><i class="fa-solid fa-sack-dollar text-accent"></i> $${perServingCost.toFixed(2)} / serving</p>
@@ -580,6 +581,7 @@ function shareRecipe(id) {
 }
 
 function showRecipeModal(initialName = '', initialIngredients = [], existingRecipeId = null) {
+    const existing = existingRecipeId ? currentRecipes.find(r => r.id === existingRecipeId) : null;
     modalContainer.innerHTML = `
         <h2>${existingRecipeId ? 'Edit' : 'New'} Recipe</h2>
         <form id="recipeForm">
@@ -588,8 +590,15 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
                 <input type="text" id="recipeName" required value="${initialName}">
             </div>
             <div class="form-group">
-                <label>Servings</label>
-                <input type="number" id="recipeServings" value="2" required>
+                <label>Servings (optional)</label>
+                <input type="number" id="recipeServings" value="${existing ? (existing.servings || '') : ''}">
+            </div>
+            <div class="form-group">
+                <label>Recipe Image (optional)</label>
+                <input type="file" id="recipeImageInput" accept="image/*" class="form-control">
+                <div id="recipeImagePreviewContainer" style="margin-top: 10px; ${existing && existing.image ? '' : 'display:none;'}">
+                    <img id="recipeImagePreview" src="${existing ? (existing.image || '') : ''}" style="max-width: 100%; max-height: 150px; border-radius: 8px; border: 1px solid var(--border-color);">
+                </div>
             </div>
             <div class="form-group">
                 <label>Categories</label>
@@ -649,6 +658,38 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     let selectedIngredients = [...initialIngredients];
     let selectedCategories = [];
     
+    // Image Handling
+    let recipeImageBase64 = existing ? existing.image : null;
+    document.getElementById('recipeImageInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (re) => {
+                // Resize image to keep Firestore doc size down
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 600;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    recipeImageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    document.getElementById('recipeImagePreview').src = recipeImageBase64;
+                    document.getElementById('recipeImagePreviewContainer').style.display = 'block';
+                };
+                img.src = re.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
     // Setup Category Toggles
     const catBtns = document.querySelectorAll('.category-btn');
     catBtns.forEach(btn => {
@@ -772,9 +813,11 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
         const newRecipe = {
             id: existingRecipeId || ('rec_' + Date.now()),
             name: document.getElementById('recipeName').value,
-            servings: parseInt(document.getElementById('recipeServings').value),
+            servings: parseInt(document.getElementById('recipeServings').value) || null,
             categories: selectedCategories,
-            ingredients: selectedIngredients
+            ingredients: selectedIngredients,
+            image: recipeImageBase64,
+            updatedAt: new Date().toISOString()
         };
         await dbAPI.add('recipes', newRecipe);
         await loadData();
