@@ -744,6 +744,27 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     });
 
     // Setup Category Toggles
+    // Sidebar Toggle
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('hidden');
+    }
+
+    if(menuToggle) menuToggle.addEventListener('click', toggleSidebar);
+    if(sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
+
+    // Sidebar Links
+    document.querySelectorAll('.nav-links li').forEach(li => {
+        li.addEventListener('click', () => {
+            if (window.innerWidth <= 1024) toggleSidebar();
+            switchView(li.getAttribute('data-view'));
+        });
+    });
+
     const catBtns = document.querySelectorAll('.category-btn');
     catBtns.forEach(btn => {
         btn.addEventListener('click', () => {

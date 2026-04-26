@@ -40,12 +40,16 @@
                 </div>
             </div>
         </nav>
+        <div id="sidebarOverlay" class="sidebar-overlay hidden"></div>
 
         <!-- Main Content Area -->
         <main class="main-content">
             <!-- Header -->
             <header class="top-header">
-                <h2>Dashboard</h2>
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <button id="menuToggle" class="btn icon-btn" style="padding: 8px 12px; background: transparent; border: none; font-size: 1.2rem; color: white;"><i class="fa-solid fa-bars"></i></button>
+                    <h2 id="viewTitle">Dashboard</h2>
+                </div>
                 <div class="header-actions">
                     <div id="headerAuth" class="header-auth">
                         <button id="headerLoginBtn" class="btn outline-btn"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
