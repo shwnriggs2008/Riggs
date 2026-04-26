@@ -629,8 +629,10 @@ function shareRecipe(id) {
     });
 }
 
-function showRecipeModal(initialName = '', initialIngredients = [], existingRecipeId = null) {
+function showRecipeModal(initialName = '', initialIngredients = [], existingRecipeId = null, initialSourceUrl = '') {
     const existing = existingRecipeId ? currentRecipes.find(r => r.id === existingRecipeId) : null;
+    const finalSourceUrl = initialSourceUrl || (existing ? (existing.sourceUrl || '') : '');
+
     modalContainer.innerHTML = `
         <h2>${existingRecipeId ? 'Edit' : 'New'} Recipe</h2>
         <form id="recipeForm">
@@ -651,7 +653,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             </div>
             <div class="form-group">
                 <label>Source Link (URL)</label>
-                <input type="url" id="recipeSourceUrl" placeholder="https://example.com/recipe" value="${existing ? (existing.sourceUrl || '') : ''}">
+                <input type="url" id="recipeSourceUrl" placeholder="https://example.com/recipe" value="${finalSourceUrl}">
             </div>
             <div class="form-group">
                 <label>Categories</label>
@@ -901,11 +903,11 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
 function editRecipe(id) {
     const recipe = currentRecipes.find(r => r.id === id);
     if (recipe) {
-        showRecipeModal(recipe.name, recipe.ingredients, recipe.id);
+        showRecipeModal(recipe.name, recipe.ingredients, recipe.id, recipe.sourceUrl);
         // Pre-fill categories and other fields
         setTimeout(() => {
             if(recipe.servings) document.getElementById('recipeServings').value = recipe.servings;
-            if(recipe.sourceUrl) document.getElementById('recipeSourceUrl').value = recipe.sourceUrl;
+            // Source URL is now handled by showRecipeModal argument
             
             const catBtns = document.querySelectorAll('.category-btn');
             catBtns.forEach(btn => {
@@ -1080,7 +1082,7 @@ function showImportUrlModal() {
             }
             
             status.classList.add('hidden');
-            showRecipeModal(recipeData.name, recipeData.ingredients, recipeData.servings);
+            showRecipeModal(recipeData.name, recipeData.ingredients, null, url);
             
         } catch (e) {
             console.error(e);
