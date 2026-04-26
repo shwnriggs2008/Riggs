@@ -653,7 +653,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             </div>
             <div class="form-group">
                 <label>Source Link (URL)</label>
-                <input type="url" id="recipeSourceUrl" placeholder="https://example.com/recipe" value="${finalSourceUrl}">
+                <input type="text" id="recipeSourceUrl" placeholder="e.g. allrecipes.com/..." value="${finalSourceUrl}">
             </div>
             <div class="form-group">
                 <label>Categories</label>
@@ -880,23 +880,34 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
 
     document.getElementById('recipeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        // Categories are optional but needed for randomizer
+        const saveBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
 
-        const newRecipe = {
-            id: existingRecipeId || ('rec_' + Date.now()),
-            name: document.getElementById('recipeName').value,
-            servings: parseInt(document.getElementById('recipeServings').value) || null,
-            categories: selectedCategories,
-            ingredients: selectedIngredients,
-            image: recipeImageBase64,
-            sourceUrl: document.getElementById('recipeSourceUrl').value,
-            updatedAt: new Date().toISOString()
-        };
-        await dbAPI.add('recipes', newRecipe);
-        await loadData();
-        closeModal();
-        renderRecipes();
+        try {
+            const newRecipe = {
+                id: existingRecipeId || ('rec_' + Date.now()),
+                name: document.getElementById('recipeName').value,
+                servings: parseInt(document.getElementById('recipeServings').value) || null,
+                categories: selectedCategories,
+                ingredients: selectedIngredients,
+                image: recipeImageBase64,
+                sourceUrl: document.getElementById('recipeSourceUrl').value.trim(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            await dbAPI.add('recipes', newRecipe);
+            await loadData();
+            closeModal();
+            renderRecipes();
+        } catch (err) {
+            console.error("Save failed:", err);
+            alert("Error saving recipe: " + err.message);
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
     });
 }
 
