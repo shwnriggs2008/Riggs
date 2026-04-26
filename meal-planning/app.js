@@ -551,25 +551,74 @@ function renderRecipes() {
         let perServingCost = recipe.servings > 0 ? (totalCost / recipe.servings) : 0;
         let perServingCals = recipe.servings > 0 ? (totalCals / recipe.servings) : 0;
 
+        el.onclick = (e) => {
+            // Only open view if they didn't click an action button
+            if (!e.target.closest('.action-btn')) {
+                viewRecipe(recipe.id);
+            }
+        };
+
         el.innerHTML = `
             ${recipe.image ? `<img src="${recipe.image}" style="width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:15px;">` : ''}
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <h3 style="margin-bottom: 5px; color: var(--accent);">${recipe.name}</h3>
+                <h3 style="margin-bottom: 5px; color: var(--accent); cursor: pointer;">${recipe.name}</h3>
                 <div style="display:flex; gap:5px;">
-                    <button class="action-btn" onclick="editRecipe('${recipe.id}')"><i class="fa-solid fa-pencil"></i></button>
-                    <button class="action-btn" onclick="shareRecipe('${recipe.id}')"><i class="fa-solid fa-share-nodes"></i></button>
-                    <button class="action-btn" onclick="deleteRecipe('${recipe.id}')"><i class="fa-solid fa-trash"></i></button>
+                    <button class="action-btn" onclick="event.stopPropagation(); editRecipe('${recipe.id}')" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+                    <button class="action-btn" onclick="event.stopPropagation(); shareRecipe('${recipe.id}')" title="Share"><i class="fa-solid fa-share-nodes"></i></button>
+                    <button class="action-btn" onclick="event.stopPropagation(); deleteRecipe('${recipe.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">${recipe.categories.join(' • ')}</p>
             <p style="font-size: 0.9rem; color: var(--text-secondary);">Servings: ${recipe.servings || 'N/A'}</p>
-            <div style="margin-top: 10px; font-size: 0.85rem; border-top: 1px solid var(--border-color); padding-top: 10px;">
-                <p><i class="fa-solid fa-fire text-accent"></i> ${perServingCals.toFixed(0)} kcal / serving</p>
-                <p><i class="fa-solid fa-sack-dollar text-accent"></i> $${perServingCost.toFixed(2)} / serving</p>
-            </div>
+            ${recipe.sourceUrl ? `<p style="font-size: 0.8rem; margin-top:5px;"><a href="${recipe.sourceUrl}" target="_blank" style="color:var(--accent); text-decoration:none;"><i class="fa-solid fa-link"></i> Original Source</a></p>` : ''}
         `;
         grid.appendChild(el);
     });
+}
+
+function viewRecipe(id) {
+    const recipe = currentRecipes.find(r => r.id === id);
+    if (!recipe) return;
+
+    modalContainer.innerHTML = `
+        <div class="recipe-view-container">
+            ${recipe.image ? `<img src="${recipe.image}" style="width:100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 20px;">` : ''}
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                <h2 style="margin:0;">${recipe.name}</h2>
+                <button class="btn magic-btn" onclick="editRecipe('${recipe.id}')"><i class="fa-solid fa-pencil"></i> Edit</button>
+            </div>
+            <div style="display:flex; gap: 15px; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">
+                <span><i class="fa-solid fa-tags"></i> ${recipe.categories.join(', ')}</span>
+                <span><i class="fa-solid fa-user-group"></i> Servings: ${recipe.servings || 'N/A'}</span>
+            </div>
+            
+            <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-top:0;"><i class="fa-solid fa-list-check"></i> Ingredients</h3>
+                <ul style="list-style: none; padding: 0;">
+                    ${recipe.ingredients.length > 0 ? recipe.ingredients.map(ri => {
+                        const ing = currentIngredients.find(i => i.id === ri.ingredientId);
+                        return `<li style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <strong>${ri.quantity} ${ri.unit || (ing ? ing.unit : '')}</strong> ${ing ? ing.name : 'Unknown'}
+                            ${ri.notes ? `<span style="font-style:italic; color:var(--text-secondary); font-size:0.85rem; margin-left:10px;">- ${ri.notes}</span>` : ''}
+                        </li>`;
+                    }).join('') : '<li style="color:var(--text-secondary);">No ingredients listed.</li>'}
+                </ul>
+            </div>
+
+            ${recipe.sourceUrl ? `
+                <div style="margin-bottom: 20px;">
+                    <a href="${recipe.sourceUrl}" target="_blank" class="btn outline-btn w-full" style="justify-content:center;">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Original Recipe
+                    </a>
+                </div>
+            ` : ''}
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn icon-btn" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    `;
+    modalOverlay.classList.remove('hidden');
 }
 
 function shareRecipe(id) {
@@ -599,6 +648,10 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
                 <div id="recipeImagePreviewContainer" style="margin-top: 10px; ${existing && existing.image ? '' : 'display:none;'}">
                     <img id="recipeImagePreview" src="${existing ? (existing.image || '') : ''}" style="max-width: 100%; max-height: 150px; border-radius: 8px; border: 1px solid var(--border-color);">
                 </div>
+            </div>
+            <div class="form-group">
+                <label>Source Link (URL)</label>
+                <input type="url" id="recipeSourceUrl" placeholder="https://example.com/recipe" value="${existing ? (existing.sourceUrl || '') : ''}">
             </div>
             <div class="form-group">
                 <label>Categories</label>
@@ -817,6 +870,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             categories: selectedCategories,
             ingredients: selectedIngredients,
             image: recipeImageBase64,
+            sourceUrl: document.getElementById('recipeSourceUrl').value,
             updatedAt: new Date().toISOString()
         };
         await dbAPI.add('recipes', newRecipe);
@@ -1526,6 +1580,7 @@ window.exportShoppingList = exportShoppingList;
 window.showIngredientModal = showIngredientModal;
 window.showProfileModal = showProfileModal;
 window.showRecipeModal = showRecipeModal;
+window.viewRecipe = viewRecipe;
 window.showPasteRecipeModal = showPasteRecipeModal;
 window.showImportUrlModal = showImportUrlModal;
 window.showImportImageModal = showImportImageModal;
