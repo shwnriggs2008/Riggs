@@ -632,6 +632,13 @@ function shareRecipe(id) {
 function showRecipeModal(initialName = '', initialIngredients = [], existingRecipeId = null, initialSourceUrl = '') {
     const existing = existingRecipeId ? currentRecipes.find(r => r.id === existingRecipeId) : null;
     const finalSourceUrl = initialSourceUrl || (existing ? (existing.sourceUrl || '') : '');
+    
+    // Check for image from visual scraper
+    let initialImage = existing ? (existing.image || '') : '';
+    if (window.lastScrapedImage && !existingRecipeId) {
+        initialImage = window.lastScrapedImage;
+        window.lastScrapedImage = null; // consume it
+    }
 
     modalContainer.innerHTML = `
         <h2>${existingRecipeId ? 'Edit' : 'New'} Recipe</h2>
@@ -647,8 +654,8 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
             <div class="form-group">
                 <label>Recipe Image (optional)</label>
                 <input type="file" id="recipeImageInput" accept="image/*" class="form-control">
-                <div id="recipeImagePreviewContainer" style="margin-top: 10px; ${existing && existing.image ? '' : 'display:none;'}">
-                    <img id="recipeImagePreview" src="${existing ? (existing.image || '') : ''}" style="max-width: 100%; max-height: 150px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div id="recipeImagePreviewContainer" style="margin-top: 10px; ${initialImage ? '' : 'display:none;'}">
+                    <img id="recipeImagePreview" src="${initialImage}" style="max-width: 100%; max-height: 150px; border-radius: 8px; border: 1px solid var(--border-color);">
                 </div>
             </div>
             <div class="form-group">
@@ -714,7 +721,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     let selectedCategories = existing ? [...existing.categories] : [];
     
     // Image Handling
-    let recipeImageBase64 = existing ? existing.image : null;
+    let recipeImageBase64 = initialImage;
     document.getElementById('recipeImageInput').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -954,10 +961,17 @@ function showImportUrlModal() {
         <div id="importStatus" style="margin-top: 10px; font-size: 0.9rem; color: var(--accent);" class="hidden">Parsing website... this may take a few seconds.</div>
         <div style="display:flex; gap: 10px; margin-top:20px;">
             <button class="btn primary-btn" id="startImportBtn">Scan & Merge</button>
+            <button class="btn magic-btn" id="visualImportBtn" style="background: var(--accent);"><i class="fa-solid fa-eye"></i> Visual Mode</button>
             <button class="btn icon-btn" onclick="closeModal()">Cancel</button>
         </div>
     `;
     modalOverlay.classList.remove('hidden');
+
+    document.getElementById('visualImportBtn').addEventListener('click', () => {
+        const url = document.getElementById('importUrlInput').value;
+        if(url) showVisualScraper(url);
+        else alert("Please enter a URL first.");
+    });
 
     document.getElementById('startImportBtn').addEventListener('click', async () => {
         const url = document.getElementById('importUrlInput').value;
@@ -1620,3 +1634,147 @@ window.showImportImageModal = showImportImageModal;
 window.editRecipe = editRecipe;
 window.manualCleanup = manualCleanup;
 window.removeIngFromRecipe = (idx) => { /* already attached in showRecipeModal */ };
+
+// --- Visual Scraper Assistant ---
+let scraperData = { name: '', ingredients: [], image: '', sourceUrl: '' };
+
+async function showVisualScraper(url) {
+    scraperData = { name: '', ingredients: [], image: '', sourceUrl: url };
+    
+    modalContainer.innerHTML = `
+        <div style="display:flex; flex-direction:column; height: 90vh; width: 95vw; max-width: 1400px; color: white;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h2 style="margin:0;">Visual Scraper Assistant</h2>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn primary-btn" id="finishVisualImport"><i class="fa-solid fa-check"></i> Import to Recipe</button>
+                    <button class="btn icon-btn" onclick="closeModal()">Cancel</button>
+                </div>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 350px; gap: 20px; flex:1; overflow:hidden;">
+                <!-- Left: Website Content -->
+                <div class="glass-panel" style="overflow-y:auto; padding:20px; background: rgba(0,0,0,0.3);">
+                    <div id="scraperStatus" style="padding: 20px; text-align: center;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Fetching website content...
+                    </div>
+                    <div id="scraperContent" style="display:none;">
+                        <p style="font-size: 0.85rem; color: var(--accent); margin-bottom: 15px; background: rgba(139,92,246,0.1); padding: 10px; border-radius: 8px;">
+                            <i class="fa-solid fa-mouse-pointer"></i> <strong>How to use:</strong> Click on a title to set the name. Click an image to set the recipe photo. Click text blocks to add them to your ingredients list.
+                        </p>
+                        <div id="scraperElementsContainer" style="display: flex; flex-direction: column; gap: 5px;"></div>
+                    </div>
+                </div>
+                
+                <!-- Right: Import Preview -->
+                <div class="glass-panel" style="padding:20px; display:flex; flex-direction:column; gap:15px; border-left: 2px solid var(--accent); background: rgba(15,23,42,0.8);">
+                    <h3 style="margin:0; font-size: 1.1rem;">Import Preview</h3>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">Recipe Name</label>
+                        <input type="text" id="vName" placeholder="Click title on left..." class="form-control" style="background: rgba(255,255,255,0.05);">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">Main Image</label>
+                        <div id="vImagePreview" style="height: 140px; border-radius:8px; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; overflow:hidden; border: 1px dashed var(--border-color);">
+                            <span style="color:var(--text-secondary); font-size:0.8rem;">No image selected</span>
+                        </div>
+                    </div>
+                    <div class="form-group" style="flex:1; display:flex; flex-direction:column;">
+                        <label style="font-size: 0.8rem;">Ingredients List</label>
+                        <textarea id="vIngredients" style="flex:1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color:white; border-radius:8px; padding:10px; font-size:0.85rem; resize: none;" placeholder="Click ingredient lines on left..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    modalOverlay.classList.remove('hidden');
+
+    try {
+        const proxy = 'https://corsproxy.io/?' + encodeURIComponent(url);
+        const response = await fetch(proxy);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const container = document.getElementById('scraperElementsContainer');
+        container.innerHTML = '';
+        
+        // Find all potential titles, images, and text
+        const elements = doc.querySelectorAll('h1, h2, h3, p, li, img');
+        
+        // Group images at the top
+        const imgWrapper = document.createElement('div');
+        imgWrapper.style = "display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);";
+        container.appendChild(imgWrapper);
+
+        elements.forEach(el => {
+            if (el.tagName === 'IMG') {
+                const src = el.src || el.getAttribute('data-src');
+                if (src && src.startsWith('http')) {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.style = "height: 80px; width: 100px; object-fit: cover; cursor:pointer; border-radius:6px; border: 2px solid transparent; transition: all 0.2s;";
+                    img.onclick = () => {
+                        document.querySelectorAll('#scraperElementsContainer img').forEach(i => i.style.borderColor = 'transparent');
+                        img.style.borderColor = 'var(--accent)';
+                        img.style.transform = 'scale(1.05)';
+                        scraperData.image = img.src;
+                        document.getElementById('vImagePreview').innerHTML = `<img src="${img.src}" style="width:100%; height:100%; object-fit:cover;">`;
+                    };
+                    imgWrapper.appendChild(img);
+                }
+            } else {
+                const text = el.innerText.trim();
+                if (text.length > 2 && text.length < 500) {
+                    const div = document.createElement('div');
+                    div.innerText = text;
+                    div.style = "padding: 10px 15px; background: rgba(255,255,255,0.03); border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; font-size: 0.9rem;";
+                    
+                    div.onmouseover = () => {
+                        div.style.background = 'rgba(139,92,246,0.1)';
+                        div.style.borderColor = 'rgba(139,92,246,0.3)';
+                    };
+                    div.onmouseout = () => {
+                        div.style.background = 'rgba(255,255,255,0.03)';
+                        div.style.borderColor = 'transparent';
+                    };
+                    
+                    div.onclick = () => {
+                        if (el.tagName.startsWith('H')) {
+                            document.getElementById('vName').value = text;
+                            div.style.background = 'rgba(76,175,80,0.2)';
+                        } else {
+                            const current = document.getElementById('vIngredients').value;
+                            document.getElementById('vIngredients').value = (current ? current + '\n' : '') + text;
+                            div.style.background = 'rgba(139,92,246,0.2)';
+                        }
+                    };
+                    container.appendChild(div);
+                }
+            }
+        });
+        
+        document.getElementById('scraperStatus').classList.add('hidden');
+        document.getElementById('scraperContent').style.display = 'block';
+        
+        document.getElementById('finishVisualImport').onclick = async () => {
+            const name = document.getElementById('vName').value;
+            const ingText = document.getElementById('vIngredients').value;
+            const image = scraperData.image;
+            
+            if(!name || !ingText) {
+                alert("Please select a name and some ingredients first.");
+                return;
+            }
+            
+            const ingredients = await parseIngredientStrings(ingText.split('\n'));
+            if(image) window.lastScrapedImage = image;
+            showRecipeModal(name, ingredients, null, url);
+        };
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('scraperStatus').innerHTML = `<div style="color: var(--accent); padding: 20px;">
+            <i class="fa-solid fa-circle-exclamation"></i> Error: Could not load website content. This site may be blocking visual import.
+        </div>`;
+    }
+}
