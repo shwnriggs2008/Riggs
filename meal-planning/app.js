@@ -400,6 +400,29 @@ function closeModal() {
     setTimeout(() => { modalContainer.innerHTML = ''; }, 300);
 }
 
+// --- Utilities ---
+function scrubIngredientName(name) {
+    if (!name) return "";
+    let clean = name.toLowerCase();
+    
+    // 1. Remove numbers, fractions, and ranges (including unicode fractions)
+    // Matches: 1, 1.5, 1/2, 1-2, ½, ¼, etc.
+    const qtyRegex = /[\d\s\.\/\-\u00BC-\u00BE\u2150-\u215E]+/g;
+    clean = clean.replace(qtyRegex, ' ');
+
+    // 2. Remove common units and "filler" words if they appear as standalone words
+    const units = ['lb', 'lbs', 'pound', 'pounds', 'oz', 'ozs', 'ounce', 'ounces', 'tsp', 'tsps', 'teaspoon', 'teaspoons', 'tbsp', 'tbsps', 'tablespoon', 'tablespoons', 'cup', 'cups', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms', 'ml', 'liter', 'liters', 'clove', 'cloves', 'bottle', 'bottles', 'can', 'cans', 'pkg', 'pkgs', 'package', 'packages', 'slice', 'slices', 'of', 'and'];
+    
+    const words = clean.split(/\s+/);
+    const filteredWords = words.filter(word => !units.includes(word.toLowerCase()) && word.length > 0);
+    
+    clean = filteredWords.join(' ');
+
+    // 3. Final cleanup: Trim and Capitalize
+    clean = clean.trim();
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
 // --- Dashboard ---
 function updateDashboard() {
     const totalRecipes = currentRecipes.length;
@@ -1275,9 +1298,9 @@ async function parseIngredientStrings(strings) {
 }
 
 function extractIngredientInfo(str) {
-    const units = ['cup', 'cups', 'oz', 'ounce', 'ounces', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'lb', 'pound', 'pounds', 'g', 'gram', 'grams', 'kg', 'ml', 'liter', 'whole', 'clove', 'cloves', 'slice', 'slices'];
-    let words = str.toLowerCase().split(' ');
-    let unit = 'unit';
+    const units = ['cup', 'cups', 'oz', 'ounce', 'ounces', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'lb', 'pound', 'pounds', 'g', 'gram', 'grams', 'kg', 'ml', 'liter', 'whole', 'clove', 'cloves', 'slice', 'slices', 'pkg', 'package'];
+    let words = str.toLowerCase().split(/\s+/);
+    let unit = 'each';
     let nameWords = [];
 
     let foundUnit = false;
@@ -1286,14 +1309,17 @@ function extractIngredientInfo(str) {
         if (!foundUnit && units.includes(cleanWord)) {
             unit = cleanWord;
             foundUnit = true;
-        } else if (word !== 'of' && word !== 'and') {
+        } else {
             nameWords.push(word);
         }
     });
 
+    // Use our global scrub to finalize
+    const finalName = scrubIngredientName(nameWords.join(' '));
+
     return {
         unit: unit,
-        name: nameWords.join(' ').charAt(0).toUpperCase() + nameWords.join(' ').slice(1)
+        name: finalName
     };
 }
 
