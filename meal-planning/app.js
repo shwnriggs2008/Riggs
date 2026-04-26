@@ -709,7 +709,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     modalOverlay.classList.remove('hidden');
     
     let selectedIngredients = [...initialIngredients];
-    let selectedCategories = [];
+    let selectedCategories = existing ? [...existing.categories] : [];
     
     // Image Handling
     let recipeImageBase64 = existing ? existing.image : null;
@@ -858,10 +858,7 @@ function showRecipeModal(initialName = '', initialIngredients = [], existingReci
     document.getElementById('recipeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        if (selectedCategories.length === 0) {
-            alert("Please select at least one category.");
-            return;
-        }
+        // Categories are optional but needed for randomizer
 
         const newRecipe = {
             id: existingRecipeId || ('rec_' + Date.now()),
@@ -884,12 +881,14 @@ function editRecipe(id) {
     const recipe = currentRecipes.find(r => r.id === id);
     if (recipe) {
         showRecipeModal(recipe.name, recipe.ingredients, recipe.id);
-        // Pre-fill categories and servings
+        // Pre-fill categories and other fields
         setTimeout(() => {
-            document.getElementById('recipeServings').value = recipe.servings;
+            if(recipe.servings) document.getElementById('recipeServings').value = recipe.servings;
+            if(recipe.sourceUrl) document.getElementById('recipeSourceUrl').value = recipe.sourceUrl;
+            
             const catBtns = document.querySelectorAll('.category-btn');
             catBtns.forEach(btn => {
-                if (recipe.categories.includes(btn.getAttribute('data-value'))) {
+                if (recipe.categories && recipe.categories.includes(btn.getAttribute('data-value'))) {
                     btn.classList.add('active');
                 }
             });
