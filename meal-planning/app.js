@@ -1688,7 +1688,7 @@ async function showVisualScraper(url) {
             
             <div id="scraperGrid" style="display:grid; grid-template-columns: 1.2fr 1fr 400px; gap: 20px; flex:1; overflow:hidden; min-height: 0; transition: grid-template-columns 0.3s ease;">
                 <!-- Column 1: Reference View (Iframe) -->
-                <div id="websiteColumn" class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.4);">
+                <div id="websiteColumn" class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.4); overflow:hidden;">
                     <div style="padding: 10px; font-size: 0.8rem; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);">
                         <i class="fa-solid fa-globe"></i> Website Reference
                     </div>
@@ -1696,7 +1696,7 @@ async function showVisualScraper(url) {
                 </div>
 
                 <!-- Column 2: Selectable Content -->
-                <div class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.2);">
+                <div class="glass-panel" style="display:flex; flex-direction:column; background: rgba(0,0,0,0.2); overflow:hidden;">
                     <div style="padding: 10px; font-size: 0.8rem; border-bottom: 1px solid var(--border-color); color: var(--accent);">
                         <i class="fa-solid fa-i-cursor"></i> Click Elements to Select
                     </div>
@@ -1818,7 +1818,8 @@ async function showVisualScraper(url) {
         });
         
         document.getElementById('scraperStatus').classList.add('hidden');
-        document.getElementById('scraperContent').style.display = 'block';
+        document.getElementById('scraperContent').style.display = 'flex';
+        document.getElementById('scraperContent').style.flexDirection = 'column';
         
         document.getElementById('finishVisualImport').onclick = async () => {
             const name = document.getElementById('vName').value;
